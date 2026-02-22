@@ -1,0 +1,383 @@
+openapi: 3.0.3
+info:
+  title: GAS Backend API — Presensi, Telemetry, GPS Tracking
+  description: |
+    Backend API built on Google Apps Script (GAS) using Google Sheets as database.
+    Deployed as a Web App. All GET endpoints use query parameters; all POST endpoints accept JSON body.
+  version: 1.0.0
+  contact:
+    name: Developer
+
+servers:
+  - url: https://script.google.com/macros/s/{deploymentId}/exec
+    description: Google Apps Script Web App
+    variables:
+      deploymentId:
+        default: AKfycbw6_yoHWqZ0l30YOtjgHbtb8wlN-VQg_C8OqVWdp9XeMdtF3WXNcFwEzU1U4qWMWvn_
+        description: Web App deployment ID
+
+# ──────────────────────────────────────────────────────────────
+#  PATHS
+# ──────────────────────────────────────────────────────────────
+paths:
+  /:
+    # ── GET ────────────────────────────────────────────────────
+    get:
+      summary: Route GET requests by action parameter
+      operationId: doGet
+      parameters:
+        - $ref: '#/components/parameters/ActionParam'
+        - name: userId
+          in: query
+          schema:
+            type: string
+          description: User identifier (required for most actions)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Number of records to return (latest_telemetry)
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+            example: '2026-01-01'
+          description: Start of date range (gps_history)
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+            example: '2026-12-31'
+          description: End of date range (gps_history)
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              examples:
+                healthCheck:
+                  summary: No action — health check
+                  value:
+                    success: true
+                    data:
+                      status: ok
+                      message: GAS Backend API is running.
+                      availableActions:
+                        - presensi_status
+                        - latest_telemetry
+                        - latest_gps
+                        - gps_history
+                    timestamp: '2026-02-22T15:00:00.000Z'
+                presensiStatus:
+                  summary: action=presensi_status
+                  value:
+                    success: true
+                    data:
+                      userId: USR001
+                      date: '2026-02-22'
+                      status: CHECKED_IN
+                      checkInTime: '2026-02-22 08:00:00'
+                      isPresent: true
+                    timestamp: '2026-02-22T15:00:00.000Z'
+                latestTelemetry:
+                  summary: action=latest_telemetry
+                  value:
+                    success: true
+                    data:
+                      userId: USR001
+                      count: 2
+                      readings:
+                        - Timestamp: '2026-02-22 14:55:00'
+                          UserId: USR001
+                          AccelX: 0.12
+                          AccelY: 9.81
+                          AccelZ: 0.05
+                          DeviceInfo: Pixel 7
+                        - Timestamp: '2026-02-22 14:54:00'
+                          UserId: USR001
+                          AccelX: 0.10
+                          AccelY: 9.78
+                          AccelZ: 0.03
+                          DeviceInfo: Pixel 7
+                    timestamp: '2026-02-22T15:00:00.000Z'
+                latestGPS:
+                  summary: action=latest_gps
+                  value:
+                    success: true
+                    data:
+                      userId: USR001
+                      timestamp: '2026-02-22 14:59:00'
+                      latitude: -6.200000
+                      longitude: 106.816666
+                      accuracy: 5.0
+                      speed: 1.2
+                      bearing: 180
+                    timestamp: '2026-02-22T15:00:00.000Z'
+                gpsHistory:
+                  summary: action=gps_history
+                  value:
+                    success: true
+                    data:
+                      userId: USR001
+                      dateRange:
+                        start: '2026-02-01'
+                        end: '2026-02-22'
+                      count: 3
+                      coordinates:
+                        - timestamp: '2026-02-22 08:00:00'
+                          latitude: -6.200000
+                          longitude: 106.816666
+                          accuracy: 5.0
+                          speed: 0
+                          bearing: 0
+                        - timestamp: '2026-02-22 10:00:00'
+                          latitude: -6.201000
+                          longitude: 106.817000
+                          accuracy: 4.5
+                          speed: 1.5
+                          bearing: 90
+                        - timestamp: '2026-02-22 12:00:00'
+                          latitude: -6.202000
+                          longitude: 106.818000
+                          accuracy: 3.0
+                          speed: 2.0
+                          bearing: 45
+                    timestamp: '2026-02-22T15:00:00.000Z'
+
+    # ── POST ───────────────────────────────────────────────────
+    post:
+      summary: Route POST requests by action parameter
+      operationId: doPost
+      parameters:
+        - $ref: '#/components/parameters/ActionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/CheckInRequest'
+                - $ref: '#/components/schemas/BatchTelemetryRequest'
+                - $ref: '#/components/schemas/LogGPSRequest'
+            examples:
+              checkin:
+                summary: action=checkin
+                value:
+                  userId: USR001
+                  userName: John Doe
+                  qrToken: abc123xyz
+                  latitude: -6.200000
+                  longitude: 106.816666
+              batchTelemetry:
+                summary: action=batch_telemetry
+                value:
+                  userId: USR001
+                  deviceInfo: Pixel 7
+                  readings:
+                    - accelX: 0.12
+                      accelY: 9.81
+                      accelZ: 0.05
+                    - accelX: 0.10
+                      accelY: 9.78
+                      accelZ: 0.03
+              logGPS:
+                summary: action=log_gps
+                value:
+                  userId: USR001
+                  latitude: -6.200000
+                  longitude: 106.816666
+                  accuracy: 5.0
+                  speed: 1.2
+                  bearing: 180
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              examples:
+                checkinSuccess:
+                  summary: Check-in response
+                  value:
+                    success: true
+                    data:
+                      status: CHECKED_IN
+                      message: Check-in berhasil dicatat.
+                      checkInTime: '2026-02-22 08:00:00'
+                      userId: USR001
+                    timestamp: '2026-02-22T08:00:00.000Z'
+                checkinDuplicate:
+                  summary: Already checked in
+                  value:
+                    success: true
+                    data:
+                      status: ALREADY_CHECKED_IN
+                      message: User sudah melakukan check-in hari ini.
+                      checkInTime: '2026-02-22 08:00:00'
+                    timestamp: '2026-02-22T09:00:00.000Z'
+                telemetrySuccess:
+                  summary: Batch telemetry response
+                  value:
+                    success: true
+                    data:
+                      status: OK
+                      message: 2 telemetry record(s) saved.
+                      count: 2
+                      userId: USR001
+                    timestamp: '2026-02-22T08:00:00.000Z'
+                gpsLogSuccess:
+                  summary: GPS log response
+                  value:
+                    success: true
+                    data:
+                      status: OK
+                      message: GPS coordinate logged.
+                      userId: USR001
+                      coordinate:
+                        latitude: -6.200000
+                        longitude: 106.816666
+                      timestamp: '2026-02-22 08:00:00'
+                    timestamp: '2026-02-22T08:00:00.000Z'
+
+# ──────────────────────────────────────────────────────────────
+#  COMPONENTS
+# ──────────────────────────────────────────────────────────────
+components:
+  parameters:
+    ActionParam:
+      name: action
+      in: query
+      required: true
+      schema:
+        type: string
+        enum:
+          - presensi_status
+          - latest_telemetry
+          - latest_gps
+          - gps_history
+          - checkin
+          - batch_telemetry
+          - log_gps
+      description: |
+        Determines which handler function to call.
+        **GET actions:** presensi_status, latest_telemetry, latest_gps, gps_history
+        **POST actions:** checkin, batch_telemetry, log_gps
+
+  schemas:
+    # ── Envelope ───────────────────────────────────────────────
+    SuccessEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+              example: 500
+            message:
+              type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    # ── Request Bodies ─────────────────────────────────────────
+    CheckInRequest:
+      type: object
+      required: [userId, qrToken]
+      properties:
+        userId:
+          type: string
+          example: USR001
+        userName:
+          type: string
+          example: John Doe
+        qrToken:
+          type: string
+          example: abc123xyz
+        latitude:
+          type: number
+          format: double
+          example: -6.200000
+        longitude:
+          type: number
+          format: double
+          example: 106.816666
+
+    BatchTelemetryRequest:
+      type: object
+      required: [userId, readings]
+      properties:
+        userId:
+          type: string
+          example: USR001
+        deviceInfo:
+          type: string
+          example: Pixel 7
+        readings:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              accelX:
+                type: number
+                format: double
+              accelY:
+                type: number
+                format: double
+              accelZ:
+                type: number
+                format: double
+              timestamp:
+                type: string
+                format: date-time
+                description: Optional; server uses current time if omitted
+
+    LogGPSRequest:
+      type: object
+      required: [userId, latitude, longitude]
+      properties:
+        userId:
+          type: string
+          example: USR001
+        latitude:
+          type: number
+          format: double
+          example: -6.200000
+        longitude:
+          type: number
+          format: double
+          example: 106.816666
+        accuracy:
+          type: number
+          format: double
+          example: 5.0
+        speed:
+          type: number
+          format: double
+          example: 1.2
+        bearing:
+          type: number
+          format: double
+          example: 180
