@@ -1,85 +1,117 @@
 // ============================================================
-//  GAS Backend API — Presensi QR, Batch Telemetry, GPS Tracking
-//  Runtime: V8 | Timezone: Asia/Jakarta
+//  GAS Backend API v1 — Presensi QR Dinamis, Telemetry, GPS
+//  Routing: e.parameter.path  |  Runtime: V8  |  TZ: Asia/Jakarta
 // ============================================================
 
 // ─── CONFIGURATION ──────────────────────────────────────────
-const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE'; // ← Ganti dengan ID Spreadsheet Anda
+const SPREADSHEET_ID = '1A-PRMkgt7YbXCelkrrfSLMBHh1fdzACXiM4gy4trONM';
 
-const SHEET_PRESENSI = 'Presensi';
-const SHEET_TELEMETRY = 'Telemetry';
-const SHEET_GPS_LOG = 'GPS_Log';
+const SHEET = {
+    TOKENS: 'tokens',
+    PRESENCE: 'presence',
+    ACCEL: 'accel',
+    GPS: 'gps',
+};
 
 const HEADERS = {
-    [SHEET_PRESENSI]: ['Timestamp', 'UserId', 'UserName', 'QRToken', 'Status', 'CheckInTime', 'Latitude', 'Longitude'],
-    [SHEET_TELEMETRY]: ['Timestamp', 'UserId', 'AccelX', 'AccelY', 'AccelZ', 'DeviceInfo'],
-    [SHEET_GPS_LOG]: ['Timestamp', 'UserId', 'Latitude', 'Longitude', 'Accuracy', 'Speed', 'Bearing'],
+    [SHEET.TOKENS]: ['qr_token', 'course_id', 'session_id', 'created_at', 'expires_at', 'used'],
+    [SHEET.PRESENCE]: ['presence_id', 'user_id', 'device_id', 'course_id', 'session_id', 'qr_token', 'ts', 'recorded_at'],
+    [SHEET.ACCEL]: ['device_id', 'x', 'y', 'z', 'sample_ts', 'batch_ts', 'recorded_at'],
+    [SHEET.GPS]: ['device_id', 'lat', 'lng', 'accuracy', 'altitude', 'ts', 'recorded_at'],
 };
+
+// QR token validity duration (in milliseconds) — default 2 minutes
+const QR_TOKEN_TTL_MS = 120 * 1000;
 
 
 // ─── ROUTER ─────────────────────────────────────────────────
 
 /**
- * Handles all GET requests.
- * Route by `action` query parameter.
+ * GET router — routes by e.parameter.path
+ *
+ * Supported paths:
+ *   ?path=presence/status
+ *   ?path=sensor/gps/marker
+ *   ?path=sensor/gps/polyline
+ *   ?path=ui  (default — serves Dashboard HTML)
  */
 function doGet(e) {
     try {
-        const action = (e && e.parameter && e.parameter.action) || '';
+        const path = (e.parameter && e.parameter.path) ? e.parameter.path : 'ui';
         const params = e ? e.parameter : {};
 
-        switch (action) {
-            case 'presensi_status':
-                return jsonResponse(getPresensiStatus(params.userId));
+        switch (path) {
+            case 'presence/status':
+                return sendSuccess(getPresenceStatus(params.user_id, params.course_id, params.session_id));
 
-            case 'latest_telemetry':
-                return jsonResponse(getLatestTelemetry(params.userId, parseInt(params.limit) || 10));
+            case 'sensor/gps/marker':
+                return sendSuccess(getGpsMarker(params.device_id));
 
-            case 'latest_gps':
-                return jsonResponse(getLatestGPS(params.userId));
+            case 'sensor/gps/polyline':
+                return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to));
 
-            case 'gps_history':
-                return jsonResponse(getGPSHistory(params.userId, params.startDate, params.endDate));
+            case 'ui':
+                return HtmlService.createHtmlOutputFromFile('Index')
+                    .setTitle('Dashboard Presensi QR')
+                    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 
             default:
-                return jsonResponse({
+                return sendSuccess({
                     status: 'ok',
-                    message: 'GAS Backend API is running.',
-                    availableActions: [
-                        'presensi_status', 'latest_telemetry',
-                        'latest_gps', 'gps_history',
-                    ],
+                    message: 'GAS Backend API v1 is running.',
+                    endpoints: {
+                        GET: [
+                            '?path=presence/status',
+                            '?path=sensor/gps/marker',
+                            '?path=sensor/gps/polyline',
+                            '?path=ui',
+                        ],
+                        POST: [
+                            '?path=presence/qr/generate',
+                            '?path=presence/checkin',
+                            '?path=sensor/accel/batch',
+                            '?path=sensor/gps',
+                        ],
+                    },
                 });
         }
     } catch (err) {
-        return errorResponse(err.message);
+        return sendError(err.message);
     }
 }
 
 /**
- * Handles all POST requests.
- * Route by `action` query parameter.
+ * POST router — routes by e.parameter.path
+ *
+ * Supported paths:
+ *   ?path=presence/qr/generate
+ *   ?path=presence/checkin
+ *   ?path=sensor/accel/batch
+ *   ?path=sensor/gps
  */
 function doPost(e) {
     try {
-        const action = (e && e.parameter && e.parameter.action) || '';
-        const payload = e && e.postData ? JSON.parse(e.postData.contents) : {};
+        const path = (e.parameter && e.parameter.path) ? e.parameter.path : '';
+        const body = e && e.postData ? JSON.parse(e.postData.contents) : {};
 
-        switch (action) {
-            case 'checkin':
-                return jsonResponse(handleCheckIn(payload));
+        switch (path) {
+            case 'presence/qr/generate':
+                return sendSuccess(generateQRToken(body));
 
-            case 'batch_telemetry':
-                return jsonResponse(handleBatchTelemetry(payload));
+            case 'presence/checkin':
+                return sendSuccess(checkin(body));
 
-            case 'log_gps':
-                return jsonResponse(logGPS(payload));
+            case 'sensor/accel/batch':
+                return sendSuccess(batchAccel(body));
+
+            case 'sensor/gps':
+                return sendSuccess(logGPS(body));
 
             default:
-                return errorResponse('Unknown POST action: ' + action, 400);
+                return sendError('Unknown endpoint: POST ?' + path);
         }
     } catch (err) {
-        return errorResponse(err.message);
+        return sendError(err.message);
     }
 }
 
@@ -87,55 +119,36 @@ function doPost(e) {
 // ─── RESPONSE HELPERS ───────────────────────────────────────
 
 /**
- * Returns a JSON success response.
  * @param {Object} data
- * @returns {ContentService.TextOutput}
+ * @returns {ContentService.TextOutput} JSON { ok: true, data: {...} }
  */
-function jsonResponse(data) {
-    const output = {
-        success: true,
-        data: data,
-        timestamp: new Date().toISOString(),
-    };
+function sendSuccess(data) {
     return ContentService
-        .createTextOutput(JSON.stringify(output))
+        .createTextOutput(JSON.stringify({ ok: true, data: data }))
         .setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
- * Returns a JSON error response.
  * @param {string} message
- * @param {number} [code=500]
- * @returns {ContentService.TextOutput}
+ * @returns {ContentService.TextOutput} JSON { ok: false, error: "..." }
  */
-function errorResponse(message, code) {
-    const output = {
-        success: false,
-        error: {
-            code: code || 500,
-            message: message || 'Internal server error',
-        },
-        timestamp: new Date().toISOString(),
-    };
+function sendError(message) {
     return ContentService
-        .createTextOutput(JSON.stringify(output))
+        .createTextOutput(JSON.stringify({ ok: false, error: message || 'Internal server error' }))
         .setMimeType(ContentService.MimeType.JSON);
 }
 
 
 // ─── SHEET HELPERS ──────────────────────────────────────────
 
-/**
- * Returns the spreadsheet reference.
- * @returns {SpreadsheetApp.Spreadsheet}
- */
+/** @returns {SpreadsheetApp.Spreadsheet} */
 function getSpreadsheet() {
     return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
 /**
- * Returns an existing sheet or creates it with the predefined headers.
- * @param {string} name - Sheet tab name
+ * Returns an existing sheet or creates it with predefined headers.
+ * @param {string} name
  * @returns {SpreadsheetApp.Sheet}
  */
 function getOrCreateSheet(name) {
@@ -157,192 +170,220 @@ function getOrCreateSheet(name) {
 }
 
 /**
- * Formats a Date object to string in Asia/Jakarta timezone.
- * @param {Date} [date=new Date()]
- * @returns {string} yyyy-MM-dd HH:mm:ss
+ * Returns current time as ISO-8601 string.
+ * @returns {string} e.g. "2026-02-22T15:30:00.000Z"
  */
-function formatTimestamp(date) {
-    return Utilities.formatDate(date || new Date(), 'Asia/Jakarta', 'yyyy-MM-dd HH:mm:ss');
+function nowISO() {
+    return new Date().toISOString();
 }
 
 /**
- * Returns today's date string (yyyy-MM-dd) in Asia/Jakarta.
+ * Generates a unique ID (simple UUID-like).
  * @returns {string}
  */
-function todayString() {
-    return Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd');
+function generateId() {
+    return Utilities.getUuid();
 }
 
 
-// ─── MODULE 1: PRESENSI QR ─────────────────────────────────
+// ─── MODULE 1: PRESENSI QR DINAMIS ─────────────────────────
 
 /**
- * Validates a QR token and records a check-in.
- * Prevents duplicate check-in on the same day.
+ * POST ?path=presence/qr/generate
  *
- * @param {Object} payload - { userId, userName, qrToken, latitude?, longitude? }
- * @returns {Object} result with status and checkInTime
+ * Generates a unique QR token for a course session with a 2-minute TTL.
+ *
+ * @param {Object} body - { course_id, session_id, ts }
+ * @returns {Object} { qr_token, expires_at }
  */
-function handleCheckIn(payload) {
-    if (!payload.userId || !payload.qrToken) {
-        throw new Error('Missing required fields: userId, qrToken');
+function generateQRToken(body) {
+    if (!body.course_id || !body.session_id) {
+        throw new Error('Missing required fields: course_id, session_id');
     }
 
-    const sheet = getOrCreateSheet(SHEET_PRESENSI);
-    const now = new Date();
-    const today = todayString();
+    const sheet = getOrCreateSheet(SHEET.TOKENS);
+    const now = body.ts ? new Date(body.ts) : new Date();
+    const expiresAt = new Date(now.getTime() + QR_TOKEN_TTL_MS);
+    const qrToken = 'TKN-' + Utilities.getUuid().substring(0, 6).toUpperCase();
 
-    // Check if user already checked in today
-    const data = sheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-        const rowDate = Utilities.formatDate(new Date(data[i][0]), 'Asia/Jakarta', 'yyyy-MM-dd');
-        if (data[i][1] === payload.userId && rowDate === today && data[i][4] === 'CHECKED_IN') {
-            return {
-                status: 'ALREADY_CHECKED_IN',
-                message: 'User sudah melakukan check-in hari ini.',
-                checkInTime: data[i][5],
-            };
-        }
-    }
-
-    // Record new check-in
     const row = [
-        formatTimestamp(now),      // Timestamp
-        payload.userId,            // UserId
-        payload.userName || '',    // UserName
-        payload.qrToken,           // QRToken
-        'CHECKED_IN',              // Status
-        formatTimestamp(now),       // CheckInTime
-        payload.latitude || '',    // Latitude
-        payload.longitude || '',   // Longitude
+        qrToken,                  // qr_token
+        body.course_id,           // course_id
+        body.session_id,          // session_id
+        now.toISOString(),        // created_at
+        expiresAt.toISOString(),  // expires_at
+        false,                    // used
     ];
 
     sheet.appendRow(row);
 
     return {
-        status: 'CHECKED_IN',
-        message: 'Check-in berhasil dicatat.',
-        checkInTime: formatTimestamp(now),
-        userId: payload.userId,
+        qr_token: qrToken,
+        expires_at: expiresAt.toISOString(),
     };
 }
 
 /**
- * Returns today's attendance status for a specific user.
+ * POST ?path=presence/checkin
  *
- * @param {string} userId
- * @returns {Object} with userId, date, status, checkInTime, isPresent
+ * Validates a QR token and records attendance.
+ *
+ * @param {Object} body - { user_id, device_id, course_id, session_id, qr_token, ts }
+ * @returns {Object} { presence_id, status }
  */
-function getPresensiStatus(userId) {
-    if (!userId) {
-        throw new Error('Missing required parameter: userId');
+function checkin(body) {
+    if (!body.user_id || !body.qr_token || !body.course_id || !body.session_id) {
+        throw new Error('Missing required fields: user_id, qr_token, course_id, session_id');
     }
 
-    const sheet = getOrCreateSheet(SHEET_PRESENSI);
-    const data = sheet.getDataRange().getValues();
-    const today = todayString();
+    // ── Validate token ──
+    const tokensSheet = getOrCreateSheet(SHEET.TOKENS);
+    const tokensData = tokensSheet.getDataRange().getValues();
+    const headers = tokensData[0];
+    let tokenRowIndex = -1;
 
-    // Search from bottom for most recent entry
-    for (let i = data.length - 1; i >= 1; i--) {
-        if (data[i][1] === userId) {
-            const rowDate = Utilities.formatDate(new Date(data[i][0]), 'Asia/Jakarta', 'yyyy-MM-dd');
-            if (rowDate === today) {
-                return {
-                    userId: userId,
-                    date: today,
-                    status: data[i][4],
-                    checkInTime: data[i][5],
-                    isPresent: true,
-                };
+    const checkTime = body.ts ? new Date(body.ts) : new Date();
+
+    // Column indices based on HEADERS.tokens:
+    // 0=qr_token, 1=course_id, 2=session_id, 3=created_at, 4=expires_at, 5=used
+    for (let i = 1; i < tokensData.length; i++) {
+        const rowQRToken = tokensData[i][0];
+        const rowCourseId = tokensData[i][1];
+        const rowSessionId = tokensData[i][2];
+        const rowExpiresAt = new Date(tokensData[i][4]);
+        const rowUsed = tokensData[i][5];
+
+        if (rowQRToken === body.qr_token &&
+            rowCourseId === body.course_id &&
+            rowSessionId === body.session_id) {
+
+            // Check if already used
+            if (rowUsed === true || rowUsed === 'TRUE' || rowUsed === 'true') {
+                throw new Error('token_already_used');
             }
+
+            // Check expiration
+            if (checkTime > rowExpiresAt) {
+                throw new Error('token_expired');
+            }
+
+            tokenRowIndex = i;
+            break;
+        }
+    }
+
+    if (tokenRowIndex === -1) {
+        throw new Error('token_invalid');
+    }
+
+    // ── Mark token as used ──
+    tokensSheet.getRange(tokenRowIndex + 1, 6).setValue(true); // Column 6 = "used"
+
+    // ── Record presence ──
+    const presenceSheet = getOrCreateSheet(SHEET.PRESENCE);
+    const presenceId = 'PR-' + Utilities.getUuid().substring(0, 4).toUpperCase();
+
+    const row = [
+        presenceId,               // presence_id
+        body.user_id,             // user_id
+        body.device_id || '',     // device_id
+        body.course_id,           // course_id
+        body.session_id,          // session_id
+        body.qr_token,            // qr_token
+        checkTime.toISOString(),  // ts
+        nowISO(),                 // recorded_at
+    ];
+
+    presenceSheet.appendRow(row);
+
+    return {
+        presence_id: presenceId,
+        status: 'checked_in',
+    };
+}
+
+/**
+ * GET ?path=presence/status&user_id=...&course_id=...&session_id=...
+ *
+ * Returns the latest attendance status for a user in a specific course session.
+ *
+ * @param {string} userId
+ * @param {string} courseId
+ * @param {string} sessionId
+ * @returns {Object}
+ */
+function getPresenceStatus(userId, courseId, sessionId) {
+    if (!userId || !courseId || !sessionId) {
+        throw new Error('Missing required parameters: user_id, course_id, session_id');
+    }
+
+    const sheet = getOrCreateSheet(SHEET.PRESENCE);
+    const data = sheet.getDataRange().getValues();
+
+    // Column indices: 0=presence_id, 1=user_id, 2=device_id, 3=course_id, 4=session_id, 5=qr_token, 6=ts, 7=recorded_at
+    // Walk backwards — most recent first
+    for (let i = data.length - 1; i >= 1; i--) {
+        if (data[i][1] === userId &&
+            data[i][3] === courseId &&
+            data[i][4] === sessionId) {
+            return {
+                user_id: userId,
+                course_id: courseId,
+                session_id: sessionId,
+                status: 'checked_in',
+                last_ts: data[i][6],
+            };
         }
     }
 
     return {
-        userId: userId,
-        date: today,
-        status: 'NOT_CHECKED_IN',
-        checkInTime: null,
-        isPresent: false,
+        user_id: userId,
+        course_id: courseId,
+        session_id: sessionId,
+        status: 'not_checked_in',
+        last_ts: null,
     };
 }
 
 
-// ─── MODULE 2: BATCH TELEMETRY (ACCELEROMETER) ─────────────
+// ─── MODULE 2: ACCELEROMETER BATCH ─────────────────────────
 
 /**
- * Receives an array of accelerometer readings and bulk-writes them.
- * Uses getRange().setValues() for performance — avoids timeout on large batches.
+ * POST ?path=sensor/accel/batch
  *
- * @param {Object} payload - { userId, deviceInfo?, readings: [{ accelX, accelY, accelZ, timestamp? }] }
- * @returns {Object} result with count of saved records
+ * Batch-writes accelerometer readings using setValues() for performance.
+ *
+ * @param {Object} body - { device_id, ts, data: [{ x, y, z, ts }] }
+ * @returns {Object} { saved: <count> }
  */
-function handleBatchTelemetry(payload) {
-    if (!payload.userId || !Array.isArray(payload.readings) || payload.readings.length === 0) {
-        throw new Error('Missing required fields: userId, readings (non-empty array)');
+function batchAccel(body) {
+    if (!body.device_id || !Array.isArray(body.data) || body.data.length === 0) {
+        throw new Error('Missing required fields: device_id, data (non-empty array)');
     }
 
-    const sheet = getOrCreateSheet(SHEET_TELEMETRY);
-    const now = new Date();
-    const deviceInfo = payload.deviceInfo || '';
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const batchTs = body.ts || nowISO();
+    const recordedAt = nowISO();
 
-    // Build 2D array for batch insert
-    const rows = payload.readings.map(function (r) {
+    // Columns: device_id, x, y, z, sample_ts, batch_ts, recorded_at
+    const rows = body.data.map(function (r) {
         return [
-            r.timestamp ? formatTimestamp(new Date(r.timestamp)) : formatTimestamp(now),
-            payload.userId,
-            r.accelX || 0,
-            r.accelY || 0,
-            r.accelZ || 0,
-            deviceInfo,
+            body.device_id,
+            r.x || 0,
+            r.y || 0,
+            r.z || 0,
+            r.ts || nowISO(),   // sample_ts
+            batchTs,            // batch_ts
+            recordedAt,         // recorded_at
         ];
     });
 
-    // Batch write — much faster than appendRow in a loop
+    // Batch write
     const lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 1, rows.length, rows[0].length).setValues(rows);
 
     return {
-        status: 'OK',
-        message: rows.length + ' telemetry record(s) saved.',
-        count: rows.length,
-        userId: payload.userId,
-    };
-}
-
-/**
- * Returns the N most recent telemetry records for a user.
- *
- * @param {string} userId
- * @param {number} [limit=10] - Number of records to return
- * @returns {Object} with userId, count, and readings array
- */
-function getLatestTelemetry(userId, limit) {
-    if (!userId) {
-        throw new Error('Missing required parameter: userId');
-    }
-
-    limit = limit || 10;
-    const sheet = getOrCreateSheet(SHEET_TELEMETRY);
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const results = [];
-
-    // Walk backwards for efficiency — most recent first
-    for (let i = data.length - 1; i >= 1 && results.length < limit; i--) {
-        if (data[i][1] === userId) {
-            const record = {};
-            for (let j = 0; j < headers.length; j++) {
-                record[headers[j]] = data[i][j];
-            }
-            results.push(record);
-        }
-    }
-
-    return {
-        userId: userId,
-        count: results.length,
-        readings: results,
+        saved: rows.length,
     };
 }
 
@@ -350,125 +391,161 @@ function getLatestTelemetry(userId, limit) {
 // ─── MODULE 3: GPS TRACKING ────────────────────────────────
 
 /**
- * Logs a single GPS coordinate to the GPS_Log sheet.
+ * POST ?path=sensor/gps
  *
- * @param {Object} payload - { userId, latitude, longitude, accuracy?, speed?, bearing? }
- * @returns {Object} result with logged coordinate
+ * Logs a single GPS coordinate.
+ *
+ * @param {Object} body - { device_id, lat, lng, ts, accuracy?, altitude? }
+ * @returns {Object} { recorded: true }
  */
-function logGPS(payload) {
-    if (!payload.userId || payload.latitude === undefined || payload.longitude === undefined) {
-        throw new Error('Missing required fields: userId, latitude, longitude');
+function logGPS(body) {
+    if (!body.device_id || body.lat === undefined || body.lng === undefined) {
+        throw new Error('Missing required fields: device_id, lat, lng');
     }
 
-    const sheet = getOrCreateSheet(SHEET_GPS_LOG);
-    const now = new Date();
+    const sheet = getOrCreateSheet(SHEET.GPS);
 
+    // Columns: device_id, lat, lng, accuracy, altitude, ts, recorded_at
     const row = [
-        formatTimestamp(now),
-        payload.userId,
-        payload.latitude,
-        payload.longitude,
-        payload.accuracy || '',
-        payload.speed || '',
-        payload.bearing || '',
+        body.device_id,
+        body.lat,
+        body.lng,
+        body.accuracy || '',
+        body.altitude || '',
+        body.ts || nowISO(),
+        nowISO(),              // recorded_at
     ];
 
     sheet.appendRow(row);
 
     return {
-        status: 'OK',
-        message: 'GPS coordinate logged.',
-        userId: payload.userId,
-        coordinate: {
-            latitude: payload.latitude,
-            longitude: payload.longitude,
-        },
-        timestamp: formatTimestamp(now),
+        recorded: true,
     };
 }
 
 /**
- * Returns the single most recent GPS coordinate for a user.
- * Used for displaying a Marker on a map.
+ * GET ?path=sensor/gps/marker&device_id=...
  *
- * @param {string} userId
- * @returns {Object} with latest coordinate or null values if not found
+ * Returns the single most recent GPS coordinate for a device (for Marker).
+ *
+ * @param {string} deviceId
+ * @returns {Object}
  */
-function getLatestGPS(userId) {
-    if (!userId) {
-        throw new Error('Missing required parameter: userId');
+function getGpsMarker(deviceId) {
+    if (!deviceId) {
+        throw new Error('Missing required parameter: device_id');
     }
 
-    const sheet = getOrCreateSheet(SHEET_GPS_LOG);
+    const sheet = getOrCreateSheet(SHEET.GPS);
     const data = sheet.getDataRange().getValues();
 
-    // Walk backwards to find latest entry
+    // Columns: 0=device_id, 1=lat, 2=lng, 3=accuracy, 4=altitude, 5=ts, 6=recorded_at
     for (let i = data.length - 1; i >= 1; i--) {
-        if (data[i][1] === userId) {
+        if (data[i][0] === deviceId) {
             return {
-                userId: userId,
-                timestamp: data[i][0],
-                latitude: data[i][2],
-                longitude: data[i][3],
-                accuracy: data[i][4],
-                speed: data[i][5],
-                bearing: data[i][6],
+                device_id: deviceId,
+                lat: data[i][1],
+                lng: data[i][2],
+                accuracy: data[i][3],
+                altitude: data[i][4],
+                ts: data[i][5],
             };
         }
     }
 
     return {
-        userId: userId,
-        message: 'No GPS data found for this user.',
-        latitude: null,
-        longitude: null,
+        device_id: deviceId,
+        lat: null,
+        lng: null,
+        ts: null,
     };
 }
 
 /**
- * Returns an array of GPS coordinates within a date range.
- * Used for drawing a Polyline on a map.
+ * GET ?path=sensor/gps/polyline&device_id=...&from=ISO&to=ISO
  *
- * @param {string} userId
- * @param {string} [startDate] - yyyy-MM-dd (defaults to today)
- * @param {string} [endDate]   - yyyy-MM-dd (defaults to today)
- * @returns {Object} with coordinates array and count
+ * Returns an array of GPS coordinates within a time range (for Polyline).
+ *
+ * @param {string} deviceId
+ * @param {string} from - ISO-8601 datetime
+ * @param {string} to   - ISO-8601 datetime
+ * @returns {Object}
  */
-function getGPSHistory(userId, startDate, endDate) {
-    if (!userId) {
-        throw new Error('Missing required parameter: userId');
+function getGpsPolyline(deviceId, from, to) {
+    if (!deviceId) {
+        throw new Error('Missing required parameter: device_id');
     }
 
-    const sheet = getOrCreateSheet(SHEET_GPS_LOG);
+    const sheet = getOrCreateSheet(SHEET.GPS);
     const data = sheet.getDataRange().getValues();
 
-    // Default range: today
-    const today = todayString();
-    const start = startDate || today;
-    const end = endDate || today;
+    // Default window: last 24 hours
+    const now = new Date();
+    const startTime = from ? new Date(from) : new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const endTime = to ? new Date(to) : now;
 
-    const coordinates = [];
+    const points = [];
 
+    // Columns: 0=device_id, 1=lat, 2=lng, 3=accuracy, 4=altitude, 5=ts, 6=recorded_at
     for (let i = 1; i < data.length; i++) {
-        if (data[i][1] !== userId) continue;
+        if (data[i][0] !== deviceId) continue;
 
-        const rowDate = Utilities.formatDate(new Date(data[i][0]), 'Asia/Jakarta', 'yyyy-MM-dd');
-        if (rowDate >= start && rowDate <= end) {
-            coordinates.push({
-                timestamp: data[i][0],
-                latitude: data[i][2],
-                longitude: data[i][3],
-                accuracy: data[i][4],
-                speed: data[i][5],
-                bearing: data[i][6],
+        const rowTime = new Date(data[i][5]);
+        if (rowTime >= startTime && rowTime <= endTime) {
+            points.push({
+                lat: data[i][1],
+                lng: data[i][2],
+                accuracy: data[i][3],
+                altitude: data[i][4],
+                ts: data[i][5],
             });
         }
     }
 
     return {
-        userId: userId,
-        dateRange: { start: start, end: end },
-        count: coordinates.length,
-        coordinates: coordinates,
+        device_id: deviceId,
+        from: startTime.toISOString(),
+        to: endTime.toISOString(),
+        count: points.length,
+        points: points,
     };
+}
+
+
+// ─── FRONTEND HELPER ────────────────────────────────────────
+
+/**
+ * Called by Index.html via google.script.run to generate a QR token.
+ * This bridges the frontend UI with the backend logic.
+ *
+ * @param {Object} payload - { course_id, session_id, ts }
+ * @returns {Object} { ok, data/error }
+ */
+function processGenerateQR(payload) {
+    try {
+        const qrToken = 'TKN-' + Utilities.getUuid().substring(0, 6).toUpperCase();
+        const now = payload.ts ? new Date(payload.ts) : new Date();
+        const expiresAt = new Date(now.getTime() + QR_TOKEN_TTL_MS);
+
+        // Save to tokens sheet
+        const sheet = getOrCreateSheet(SHEET.TOKENS);
+        sheet.appendRow([
+            qrToken,
+            payload.course_id,
+            payload.session_id,
+            now.toISOString(),
+            expiresAt.toISOString(),
+            false,
+        ]);
+
+        return {
+            ok: true,
+            data: {
+                qr_token: qrToken,
+                expires_at: expiresAt.toISOString(),
+            },
+        };
+    } catch (error) {
+        return { ok: false, error: error.message };
+    }
 }

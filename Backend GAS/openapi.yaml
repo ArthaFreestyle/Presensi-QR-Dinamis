@@ -1,0 +1,326 @@
+openapi: 3.0.3
+info:
+  title: GAS Backend API v1 — Presensi QR Dinamis, Telemetry, GPS
+  description: |
+    Backend API built on Google Apps Script (GAS), deployed as a Web App.
+    Routing uses query parameter `?path=` (NOT pathInfo).
+    All timestamps are ISO-8601.
+  version: 1.0.0
+
+servers:
+  - url: https://script.google.com/macros/s/{deploymentId}/exec
+    description: Google Apps Script Web App
+    variables:
+      deploymentId:
+        default: AKfycbxSlIv9hTfiHCbIYYN3VwDou6b81OILObVOjoj4zz8QFH0BZFwMj1C5t5CU6ec1DeB5
+        description: Web App deployment ID
+
+# ──────────────────────────────────────────────────────
+# All endpoints use query parameter `path` for routing.
+# Example: POST /exec?path=presence/qr/generate
+# ──────────────────────────────────────────────────────
+
+paths:
+  # ── PRESENCE ──────────────────────────────────────────
+  /exec:
+    get:
+      summary: Multi-purpose GET endpoint (routed by ?path= parameter)
+      operationId: doGet
+      description: |
+        Routes to different handlers based on the `path` query parameter.
+        Defaults to serving the Dashboard UI when no path is provided.
+      parameters:
+        - name: path
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - presence/status
+              - sensor/gps/marker
+              - sensor/gps/polyline
+              - ui
+          description: Virtual path for routing
+        - name: user_id
+          in: query
+          schema:
+            type: string
+          description: Required when path=presence/status
+        - name: course_id
+          in: query
+          schema:
+            type: string
+          description: Required when path=presence/status
+        - name: session_id
+          in: query
+          schema:
+            type: string
+          description: Required when path=presence/status
+        - name: device_id
+          in: query
+          schema:
+            type: string
+          description: Required when path=sensor/gps/marker or sensor/gps/polyline
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO-8601 start time (path=sensor/gps/polyline, default last 24h)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO-8601 end time (path=sensor/gps/polyline, default now)
+      responses:
+        "200":
+          description: Varies based on path parameter
+          content:
+            application/json:
+              examples:
+                presenceStatus:
+                  summary: "path=presence/status — User checked in"
+                  value:
+                    ok: true
+                    data:
+                      user_id: "2023xxxx"
+                      course_id: "cloud-101"
+                      session_id: "sesi-02"
+                      status: "checked_in"
+                      last_ts: "2026-02-18T10:01:10.000Z"
+                gpsMarker:
+                  summary: "path=sensor/gps/marker — Latest GPS"
+                  value:
+                    ok: true
+                    data:
+                      device_id: "dev-001"
+                      lat: -7.983908
+                      lng: 112.621391
+                      accuracy: 5.0
+                      altitude: 450.0
+                      ts: "2026-02-18T10:00:00Z"
+                gpsPolyline:
+                  summary: "path=sensor/gps/polyline — GPS history"
+                  value:
+                    ok: true
+                    data:
+                      device_id: "dev-001"
+                      from: "2026-02-17T10:00:00.000Z"
+                      to: "2026-02-18T10:00:00.000Z"
+                      count: 2
+                      points:
+                        - lat: -7.983908
+                          lng: 112.621391
+                          accuracy: 5
+                          altitude: 450
+                          ts: "2026-02-18T07:00:00Z"
+                        - lat: -7.984000
+                          lng: 112.622000
+                          accuracy: 4
+                          altitude: 451
+                          ts: "2026-02-18T08:00:00Z"
+                apiInfo:
+                  summary: "No path — API info"
+                  value:
+                    ok: true
+                    data:
+                      status: "ok"
+                      message: "GAS Backend API v1 is running."
+            text/html:
+              schema:
+                type: string
+              example: "<!-- Dashboard HTML when path=ui -->"
+
+    post:
+      summary: Multi-purpose POST endpoint (routed by ?path= parameter)
+      operationId: doPost
+      description: |
+        Routes to different handlers based on the `path` query parameter.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - presence/qr/generate
+              - presence/checkin
+              - sensor/accel/batch
+              - sensor/gps
+          description: Virtual path for routing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/GenerateQRRequest"
+                - $ref: "#/components/schemas/CheckinRequest"
+                - $ref: "#/components/schemas/BatchAccelRequest"
+                - $ref: "#/components/schemas/LogGPSRequest"
+      responses:
+        "200":
+          description: Varies based on path parameter
+          content:
+            application/json:
+              examples:
+                generateQR:
+                  summary: "path=presence/qr/generate"
+                  value:
+                    ok: true
+                    data:
+                      qr_token: "TKN-8F2A19"
+                      expires_at: "2026-02-18T10:02:00.000Z"
+                checkinSuccess:
+                  summary: "path=presence/checkin — Success"
+                  value:
+                    ok: true
+                    data:
+                      presence_id: "PR-0001"
+                      status: "checked_in"
+                checkinTokenExpired:
+                  summary: "path=presence/checkin — Token expired"
+                  value:
+                    ok: false
+                    error: "token_expired"
+                checkinTokenInvalid:
+                  summary: "path=presence/checkin — Token invalid"
+                  value:
+                    ok: false
+                    error: "token_invalid"
+                checkinTokenUsed:
+                  summary: "path=presence/checkin — Token already used"
+                  value:
+                    ok: false
+                    error: "token_already_used"
+                batchAccel:
+                  summary: "path=sensor/accel/batch"
+                  value:
+                    ok: true
+                    data:
+                      saved: 2
+                logGPS:
+                  summary: "path=sensor/gps"
+                  value:
+                    ok: true
+                    data:
+                      recorded: true
+
+# ──────────────────────────────────────────────────────
+components:
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        data:
+          type: object
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: false
+        error:
+          type: string
+
+    GenerateQRRequest:
+      type: object
+      required: [course_id, session_id]
+      properties:
+        course_id:
+          type: string
+          example: "cloud-101"
+        session_id:
+          type: string
+          example: "sesi-02"
+        ts:
+          type: string
+          format: date-time
+          description: Optional ISO-8601 timestamp (defaults to server time)
+
+    CheckinRequest:
+      type: object
+      required: [user_id, qr_token, course_id, session_id]
+      properties:
+        user_id:
+          type: string
+          example: "2023xxxx"
+        device_id:
+          type: string
+          example: "dev-001"
+        course_id:
+          type: string
+          example: "cloud-101"
+        session_id:
+          type: string
+          example: "sesi-02"
+        qr_token:
+          type: string
+          example: "TKN-8F2A19"
+        ts:
+          type: string
+          format: date-time
+
+    BatchAccelRequest:
+      type: object
+      required: [device_id, data]
+      description: |
+        Batch accelerometer payload. The outer `ts` is the batch timestamp.
+        Each item in `data` has its own per-sample `ts`.
+      properties:
+        device_id:
+          type: string
+          example: "dev-001"
+        ts:
+          type: string
+          format: date-time
+          description: Batch timestamp
+        data:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              x:
+                type: number
+                example: 0.12
+              y:
+                type: number
+                example: -0.05
+              z:
+                type: number
+                example: 9.81
+              ts:
+                type: string
+                format: date-time
+                description: Per-sample timestamp
+
+    LogGPSRequest:
+      type: object
+      required: [device_id, lat, lng]
+      properties:
+        device_id:
+          type: string
+          example: "dev-001"
+        lat:
+          type: number
+          format: double
+          example: -7.983908
+        lng:
+          type: number
+          format: double
+          example: 112.621391
+        accuracy:
+          type: number
+          example: 5.0
+        altitude:
+          type: number
+          example: 450.0
+        ts:
+          type: string
+          format: date-time
