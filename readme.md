@@ -6,11 +6,11 @@ Backend API ringan (Serverless) berbasis **Google Apps Script (GAS)**. Dirancang
 
 Dokumentasi spesifikasi API ini menggunakan standar **OpenAPI 3.0**. Kamu bisa melihat detail endpoint, parameter, format *request/response*, hingga mencoba simulasi *dummy request* langsung menggunakan **Swagger UI**.
 
-👉 **[Buka Dokumentasi API di Swagger UI](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/ArthaFreestyle/Presensi-QR-Dinamis/blob/main/Backend%20GAS/openapi.yaml)**
+👉 **[Buka Dokumentasi API di Swagger UI](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/ArthaFreestyle/Presensi-QR-Dinamis/main/Backend%20GAS/openapi.yaml)**
 
 *(Atau klik *badge* di bawah ini)*
 
-[![View in Swagger UI](https://img.shields.io/badge/Swagger-View_API_Docs-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/ArthaFreestyle/Presensi-QR-Dinamis/blob/main/Backend%20GAS/openapi.yaml)
+[![View in Swagger UI](https://img.shields.io/badge/Swagger-View_API_Docs-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/ArthaFreestyle/Presensi-QR-Dinamis/main/Backend%20GAS/openapi.yaml)
 
 > **⚠️ Cara Setup Link Swagger:**
 > 1. Pastikan file `openapi.yaml` sudah di-*push* ke GitHub dan repository kamu bersifat **Public**.
