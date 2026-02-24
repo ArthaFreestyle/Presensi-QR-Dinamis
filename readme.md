@@ -6,7 +6,7 @@ Backend API ringan (Serverless) berbasis **Google Apps Script (GAS)**. Dirancang
 
 Dokumentasi spesifikasi API ini menggunakan standar **OpenAPI 3.0**. Kamu bisa melihat detail endpoint, parameter, format *request/response*, hingga mencoba simulasi *dummy request* langsung menggunakan **Swagger UI**.
 
-👉 **[Buka Dokumentasi API di Swagger UI](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/USERNAME/REPO_KAMU/main/openapi.yaml)**
+👉 **[Buka Dokumentasi API di Swagger UI](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/ArthaFreestyle/Presensi-QR-Dinamis/blob/main/Backend%20GAS/openapi.yaml)**
 
 *(Atau klik *badge* di bawah ini)*
 
