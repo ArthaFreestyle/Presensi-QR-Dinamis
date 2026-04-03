@@ -1,40 +1,39 @@
 import Link from "next/link";
 
-import { SiteFooter } from "@/components/layout/site-footer";
-import { SiteHeader } from "@/components/layout/site-header";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
   return (
-    <>
-      <main className="container section stack-md">
-        <SiteHeader />
-        <h1>Front-End GAS — Presensi QR Dinamis</h1>
-        <p className="text-muted">
-          Fondasi Next.js untuk integrasi dengan GAS Backend API v1.
-        </p>
+    <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+      <section className="space-y-3">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Front-End GAS — Presensi QR Dinamis</h1>
+        <p className="text-sm text-slate-600 sm:text-base">Fondasi Next.js untuk integrasi dengan GAS Backend API v1.</p>
+      </section>
 
-        <div className="card stack-sm">
-          <h2>Mulai</h2>
-          <p className="text-muted">
-            Gunakan menu berikut untuk masuk ke modul yang tersedia.
-          </p>
-          <div className="cluster">
-            <Link className="btn btn-primary" href="/presence">
+      <Card>
+        <CardHeader>
+          <CardTitle>Mulai</CardTitle>
+          <CardDescription>Gunakan menu berikut untuk masuk ke modul yang tersedia.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Link href="/presence" className={cn(buttonVariants(), "w-full")}>
               Presensi
             </Link>
-            <Link className="btn" href="/presence/status">
+            <Link href="/presence/status" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
               Status Presensi
             </Link>
-            <Link className="btn" href="/tracking">
+            <Link href="/tracking" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
               Tracking GPS
             </Link>
-            <Link className="btn" href="/dashboard">
+            <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
               Dashboard
             </Link>
           </div>
-        </div>
-      </main>
-      <SiteFooter />
-    </>
+        </CardContent>
+      </Card>
+    </main>
   );
 }
