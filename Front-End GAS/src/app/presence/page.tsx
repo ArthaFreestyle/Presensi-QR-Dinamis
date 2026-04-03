@@ -18,6 +18,17 @@ const backendErrorMessage: Record<string, string> = {
   token_invalid: "QR tidak valid",
   token_already_used: "QR sudah pernah digunakan",
 };
+const DEFAULT_DEVICE_ID = "web-browser";
+
+function extractQrFromParams(params: URLSearchParams): ParsedQr | null {
+  const qrToken = params.get("qr_token");
+  const courseId = params.get("course_id");
+  const sessionId = params.get("session_id");
+
+  if (!qrToken || !courseId || !sessionId) return null;
+
+  return { qr_token: qrToken, course_id: courseId, session_id: sessionId };
+}
 
 function parseQrText(rawValue: string): ParsedQr | null {
   if (!rawValue.trim()) return null;
@@ -35,26 +46,13 @@ function parseQrText(rawValue: string): ParsedQr | null {
     // fallback query parsing
   }
 
-  const params = new URLSearchParams(rawValue);
-  const qr_token = params.get("qr_token");
-  const course_id = params.get("course_id");
-  const session_id = params.get("session_id");
-  if (qr_token && course_id && session_id) {
-    return { qr_token, course_id, session_id };
-  }
+  const fromRawParams = extractQrFromParams(new URLSearchParams(rawValue));
+  if (fromRawParams) return fromRawParams;
 
   try {
     const url = new URL(rawValue);
-    const qpQrToken = url.searchParams.get("qr_token");
-    const qpCourseId = url.searchParams.get("course_id");
-    const qpSessionId = url.searchParams.get("session_id");
-    if (qpQrToken && qpCourseId && qpSessionId) {
-      return {
-        qr_token: qpQrToken,
-        course_id: qpCourseId,
-        session_id: qpSessionId,
-      };
-    }
+    const fromUrlParams = extractQrFromParams(url.searchParams);
+    if (fromUrlParams) return fromUrlParams;
   } catch {
     // invalid URL
   }
@@ -64,7 +62,7 @@ function parseQrText(rawValue: string): ParsedQr | null {
 
 export default function PresencePage() {
   const [userId, setUserId] = useState("");
-  const [deviceId, setDeviceId] = useState("web-browser");
+  const [deviceId, setDeviceId] = useState(DEFAULT_DEVICE_ID);
   const [parsedQr, setParsedQr] = useState<ParsedQr | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [checkinState, setCheckinState] = useState<{
@@ -74,24 +72,29 @@ export default function PresencePage() {
   const [statusText, setStatusText] = useState<string>("Belum cek status");
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [lastRawValue, setLastRawValue] = useState<string | null>(null);
 
   const canCheckin = useMemo(() => Boolean(userId.trim() && parsedQr && !isCheckingIn), [userId, parsedQr, isCheckingIn]);
 
   const handleScan = (detectedCodes: { rawValue: string }[]) => {
+    // Scanner callback returns an array; use the first code for a single check-in flow.
     const rawValue = detectedCodes[0]?.rawValue;
     if (!rawValue) return;
+    if (rawValue === lastRawValue) return;
     const parsed = parseQrText(rawValue);
     if (!parsed) {
+      setLastRawValue(rawValue);
       setScanError("Format QR tidak dikenali. Pastikan QR presensi valid.");
       return;
     }
 
+    setLastRawValue(rawValue);
     setParsedQr(parsed);
     setScanError(null);
     setCheckinState(null);
 
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      navigator.vibrate?.(100);
+      navigator.vibrate(100);
     }
   };
 
@@ -102,7 +105,7 @@ export default function PresencePage() {
 
     const result = await api.checkin({
       user_id: userId.trim(),
-      device_id: deviceId.trim() || "web-browser",
+      device_id: deviceId.trim() || DEFAULT_DEVICE_ID,
       course_id: parsedQr.course_id,
       session_id: parsedQr.session_id,
       qr_token: parsedQr.qr_token,
@@ -204,7 +207,7 @@ export default function PresencePage() {
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-400"
               value={deviceId}
               onChange={(event) => setDeviceId(event.target.value)}
-              placeholder="Contoh: dev-001"
+              placeholder={`Default: ${DEFAULT_DEVICE_ID} (contoh lain: dev-001)`}
             />
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -221,7 +224,7 @@ export default function PresencePage() {
           </div>
           <p className="text-sm text-slate-600">{statusText}</p>
           {checkinState ? (
-            <p className={checkinState.type === "success" ? "text-sm text-green-600" : "text-sm text-red-600"}>
+            <p className={`text-sm ${checkinState.type === "success" ? "text-green-600" : "text-red-600"}`}>
               {checkinState.message}
             </p>
           ) : null}

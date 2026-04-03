@@ -18,6 +18,7 @@ function resolveTargetUrl(requestUrl: string): URL {
 }
 
 async function forward(request: NextRequest) {
+  const isPost = request.method === "POST";
   let targetUrl: URL;
 
   try {
@@ -29,19 +30,19 @@ async function forward(request: NextRequest) {
     );
   }
 
-  const body = request.method === "POST" ? await request.text() : undefined;
+  const body = isPost ? await request.text() : undefined;
+  const headers = new Headers();
+  const requestContentType = request.headers.get("Content-Type");
+  if (requestContentType) {
+    headers.set("Content-Type", requestContentType);
+  }
 
   let upstreamResponse: Response;
   try {
     upstreamResponse = await fetch(targetUrl.toString(), {
       method: request.method,
-      headers:
-        request.method === "POST"
-          ? {
-              "Content-Type": request.headers.get("content-type") ?? "application/json",
-            }
-          : undefined,
-      body: request.method === "POST" && body ? body : undefined,
+      headers: isPost ? headers : undefined,
+      body: isPost ? body : undefined,
       cache: "no-store",
     });
   } catch {
