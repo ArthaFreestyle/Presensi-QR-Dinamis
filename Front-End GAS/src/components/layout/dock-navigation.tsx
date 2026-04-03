@@ -5,9 +5,17 @@ import { useRouter, usePathname } from "next/navigation";
 import { dockApps } from "@/config/dock-apps";
 import { MacOSDock } from "@/components/ui/mac-os-dock";
 
+function isAppActive(pathname: string, href: string) {
+  if (href === "/") {
+    return pathname === "/";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 function resolveActiveApp(pathname: string) {
   const matched = dockApps
-    .filter((app) => app.href === "/" ? pathname === "/" : pathname === app.href || pathname.startsWith(`${app.href}/`))
+    .filter((app) => isAppActive(pathname, app.href))
     .sort((a, b) => b.href.length - a.href.length);
 
   return matched[0];

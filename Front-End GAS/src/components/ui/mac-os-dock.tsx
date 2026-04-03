@@ -27,6 +27,10 @@ type DockAppButtonProps = {
   onClick: (app: DockItem) => void;
 };
 
+const BASE_ICON_SIZE = 56;
+const HOVER_DISTANCE = 160;
+const MAX_SIZE_INCREASE = 24;
+
 function DockAppButton({ app, mouseX, isOpen, onClick }: DockAppButtonProps) {
   const ref = useRef<HTMLButtonElement>(null);
   const distance = useTransform(mouseX, (value) => {
@@ -40,15 +44,15 @@ function DockAppButton({ app, mouseX, isOpen, onClick }: DockAppButtonProps) {
   });
   const widthTransform = useTransform(distance, (value) => {
     if (!Number.isFinite(value)) {
-      return 56;
+      return BASE_ICON_SIZE;
     }
 
     const dist = Math.abs(value);
-    if (dist > 160) {
-      return 56;
+    if (dist > HOVER_DISTANCE) {
+      return BASE_ICON_SIZE;
     }
 
-    return 56 + ((160 - dist) / 160) * 24;
+    return BASE_ICON_SIZE + ((HOVER_DISTANCE - dist) / HOVER_DISTANCE) * MAX_SIZE_INCREASE;
   });
 
   const width = useSpring(widthTransform, {
