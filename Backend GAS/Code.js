@@ -254,8 +254,8 @@ function checkin(body) {
         const rowUsed = tokensData[i][5];
 
         if (rowQRToken === body.qr_token &&
-            rowCourseId === body.course_id &&
-            rowSessionId === body.session_id) {
+            String(rowCourseId) === String(body.course_id) &&
+            String(rowSessionId) === String(body.session_id)) {
 
             // Check if already used
             if (rowUsed === true || rowUsed === 'TRUE' || rowUsed === 'true') {
@@ -323,9 +323,9 @@ function getPresenceStatus(userId, courseId, sessionId) {
     // Column indices: 0=presence_id, 1=user_id, 2=device_id, 3=course_id, 4=session_id, 5=qr_token, 6=ts, 7=recorded_at
     // Walk backwards — most recent first
     for (let i = data.length - 1; i >= 1; i--) {
-        if (data[i][1] === userId &&
-            data[i][3] === courseId &&
-            data[i][4] === sessionId) {
+        if (String(data[i][1]) === String(userId) &&
+            String(data[i][3]) === String(courseId) &&
+            String(data[i][4]) === String(sessionId)) {
             return {
                 user_id: userId,
                 course_id: courseId,
