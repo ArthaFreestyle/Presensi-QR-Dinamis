@@ -128,7 +128,7 @@
       letter-spacing: 0.8px;
       margin-bottom: 6px;
     }
-    .form-group input {
+    .form-group input, .form-group select {
       width: 100%;
       background: var(--bg);
       border: 1px solid var(--border);
@@ -138,8 +138,9 @@
       font-family: var(--mono);
       font-size: 0.9rem;
       transition: border-color 0.2s;
+      appearance: none;
     }
-    .form-group input:focus {
+    .form-group input:focus, .form-group select:focus {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-glow);
@@ -204,8 +205,13 @@
       white-space: nowrap;
     }
 
-    button.primary {
-      width: 100%;
+    .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    button.primary, button.toggle {
+      flex: 1;
       background: var(--accent);
       color: white;
       border: none;
@@ -220,19 +226,69 @@
       position: relative;
       overflow: hidden;
     }
+    button.toggle {
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+      flex: none;
+      width: 52px;
+      padding: 13px 0;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button.toggle.active {
+      background: var(--success);
+      border-color: var(--success);
+      color: var(--bg);
+      box-shadow: 0 0 18px rgba(0, 206, 201, 0.3);
+    }
+    button.primary:hover, button.toggle:hover {
+      transform: translateY(-1px);
+    }
     button.primary:hover {
       background: #5b4bd5;
-      transform: translateY(-1px);
       box-shadow: 0 8px 25px var(--accent-glow);
     }
-    button.primary:active {
+    button.primary:active, button.toggle:active {
       transform: translateY(0);
     }
-    button.primary:disabled {
+    button.primary:disabled, button.toggle:disabled {
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
       box-shadow: none;
+    }
+
+    /* Countdown bar */
+    .countdown-wrapper {
+      margin-top: 10px;
+      display: none;
+    }
+    .countdown-wrapper.visible {
+      display: block;
+    }
+    .countdown-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: var(--mono);
+      margin-bottom: 4px;
+    }
+    .countdown-track {
+      width: 100%;
+      height: 4px;
+      background: var(--bg);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .countdown-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, var(--success), var(--accent-light));
+      border-radius: 4px;
+      transition: width 0.1s linear;
     }
 
     .footer {
@@ -269,11 +325,32 @@
 
     <div class="form-group">
       <label>Course ID</label>
-      <input type="text" id="input-course" value="cloud-101" />
+      <select id="input-course">
+        <option value="cloud-101" selected>Cloud Computing (cloud-101)</option>
+        <option value="basdat-201">Basis Data (basdat-201)</option>
+        <option value="jarkom-301">Jaringan Komputer (jarkom-301)</option>
+      </select>
     </div>
     <div class="form-group">
       <label>Session ID</label>
-      <input type="text" id="input-session" value="sesi-02" />
+      <select id="input-session">
+        <option value="sesi-01" selected>Sesi 01</option>
+        <option value="sesi-02">Sesi 02</option>
+        <option value="sesi-03">Sesi 03</option>
+        <option value="sesi-04">Sesi 04</option>
+        <option value="sesi-05">Sesi 05</option>
+        <option value="sesi-06">Sesi 06</option>
+        <option value="sesi-07">Sesi 07</option>
+        <option value="sesi-08">Sesi 08</option>
+        <option value="sesi-09">Sesi 09</option>
+        <option value="sesi-10">Sesi 10</option>
+        <option value="sesi-11">Sesi 11</option>
+        <option value="sesi-12">Sesi 12</option>
+        <option value="sesi-13">Sesi 13</option>
+        <option value="sesi-14">Sesi 14</option>
+        <option value="sesi-15">Sesi 15</option>
+        <option value="sesi-16">Sesi 16</option>
+      </select>
     </div>
 
     <div id="qr-container">
@@ -285,15 +362,34 @@
       <span class="text" id="status-text">Siap generate token</span>
     </div>
 
-    <button class="primary" id="btn-generate" onclick="generateQR()">
-      ⚡ Generate QR Baru
-    </button>
+    <div class="btn-row">
+      <button class="primary" id="btn-generate" onclick="generateQR()">
+        ⚡ Generate QR Baru
+      </button>
+      <button class="toggle" id="btn-auto" onclick="toggleAuto()" title="Auto-refresh tiap 5 detik">
+        ▶
+      </button>
+    </div>
+
+    <div class="countdown-wrapper" id="countdown-wrapper">
+      <div class="countdown-label">
+        <span>Auto-refresh</span>
+        <span id="countdown-time">5.0s</span>
+      </div>
+      <div class="countdown-track">
+        <div class="countdown-fill" id="countdown-fill"></div>
+      </div>
+    </div>
   </div>
 
   <div class="footer">GAS Backend API v1</div>
 
   <script>
     let qrInstance = null;
+    let autoInterval = null;
+    let countdownRAF = null;
+    let countdownStart = 0;
+    const AUTO_INTERVAL_MS = 5000;
 
     function setStatus(state, message) {
       const dot = document.getElementById('status-dot');
@@ -308,6 +404,7 @@
 
       if (!courseId || !sessionId) {
         setStatus('error', 'Course ID dan Session ID wajib diisi');
+        stopAuto();
         return;
       }
 
@@ -329,7 +426,7 @@
 
     function onSuccess(response) {
       const btn = document.getElementById('btn-generate');
-      btn.disabled = false;
+      if (!autoInterval) btn.disabled = false;
 
       if (response.ok) {
         const container = document.getElementById('qr-container');
@@ -339,8 +436,17 @@
         container.classList.add('active');
         container.innerHTML = '';
 
+        const courseId = document.getElementById('input-course').value.trim();
+        const sessionId = document.getElementById('input-session').value.trim();
+
+        const qrPayload = JSON.stringify({
+          qr_token: response.data.qr_token,
+          course_id: courseId,
+          session_id: sessionId
+        });
+
         qrInstance = new QRCode(container, {
-          text: response.data.qr_token,
+          text: qrPayload,
           width: 180,
           height: 180,
           colorDark: '#e8e8ef',
@@ -356,9 +462,15 @@
           '<div class="expires-display">Berlaku sampai ' + new Date(response.data.expires_at).toLocaleTimeString('id-ID') + '</div>';
         container.appendChild(info);
 
-        setStatus('success', 'Token berhasil digenerate');
+        if (autoInterval) {
+          setStatus('success', 'Auto-refresh aktif — token diperbarui');
+          resetCountdown();
+        } else {
+          setStatus('success', 'Token berhasil digenerate');
+        }
       } else {
         setStatus('error', 'Error: ' + response.error);
+        stopAuto();
       }
     }
 
@@ -367,6 +479,81 @@
       btn.disabled = false;
       setStatus('error', 'Terjadi kesalahan jaringan');
       console.error(error);
+      stopAuto();
+    }
+
+    // ── Auto-refresh ────────────────────────────────
+
+    function toggleAuto() {
+      if (autoInterval) {
+        stopAuto();
+      } else {
+        startAuto();
+      }
+    }
+
+    function startAuto() {
+      const courseId = document.getElementById('input-course').value.trim();
+      const sessionId = document.getElementById('input-session').value.trim();
+      if (!courseId || !sessionId) {
+        setStatus('error', 'Isi Course ID dan Session ID dulu');
+        return;
+      }
+
+      const btnAuto = document.getElementById('btn-auto');
+      const btnGen = document.getElementById('btn-generate');
+      const wrapper = document.getElementById('countdown-wrapper');
+
+      btnAuto.classList.add('active');
+      btnAuto.innerHTML = '⏸';
+      btnGen.disabled = true;
+      wrapper.classList.add('visible');
+
+      // Generate immediately, then every 5s
+      generateQR();
+      autoInterval = setInterval(generateQR, AUTO_INTERVAL_MS);
+      resetCountdown();
+
+      setStatus('success', 'Auto-refresh dimulai (tiap 5 detik)');
+    }
+
+    function stopAuto() {
+      clearInterval(autoInterval);
+      autoInterval = null;
+      cancelAnimationFrame(countdownRAF);
+      countdownRAF = null;
+
+      const btnAuto = document.getElementById('btn-auto');
+      const btnGen = document.getElementById('btn-generate');
+      const wrapper = document.getElementById('countdown-wrapper');
+
+      btnAuto.classList.remove('active');
+      btnAuto.innerHTML = '▶';
+      btnGen.disabled = false;
+      wrapper.classList.remove('visible');
+
+      setStatus('idle', 'Auto-refresh dihentikan');
+    }
+
+    function resetCountdown() {
+      countdownStart = performance.now();
+      cancelAnimationFrame(countdownRAF);
+      tickCountdown();
+    }
+
+    function tickCountdown() {
+      const elapsed = performance.now() - countdownStart;
+      const remaining = Math.max(0, AUTO_INTERVAL_MS - elapsed);
+      const pct = (remaining / AUTO_INTERVAL_MS) * 100;
+
+      const fill = document.getElementById('countdown-fill');
+      const label = document.getElementById('countdown-time');
+      if (fill) fill.style.width = pct + '%';
+      if (label) label.textContent = (remaining / 1000).toFixed(1) + 's';
+
+      if (remaining > 0 && autoInterval) {
+        countdownRAF = requestAnimationFrame(tickCountdown);
+      }
     }
   </script>
 </body>

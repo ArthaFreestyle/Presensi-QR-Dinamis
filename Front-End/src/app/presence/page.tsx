@@ -124,7 +124,8 @@ export default function PresencePage() {
     });
 
     if (result.ok) {
-      setCheckinState({ type: "success", message: "Check-in berhasil." });
+      const presenceId = result.data?.presence_id ?? "";
+      setCheckinState({ type: "success", message: `Check-in berhasil! Presence ID: ${presenceId}` });
       setStatusText("Status terkini: checked_in");
     } else {
       setCheckinState({
