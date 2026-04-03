@@ -14,13 +14,9 @@ import type {
   RootInfoResponse,
 } from "@/types/api";
 
-const baseUrl = process.env.NEXT_PUBLIC_GAS_API_URL;
+const baseUrl = "/api/gas";
 
 function resolveApiUrl() {
-  if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_GAS_API_URL is not set");
-  }
-
   return baseUrl;
 }
 
@@ -36,13 +32,13 @@ async function parseEnvelope<T>(response: Response): Promise<ApiEnvelope<T>> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<ApiEnvelope<T>> {
-  const url = new URL(resolveApiUrl());
+  const url = new URL(resolveApiUrl(), "http://localhost");
 
   if (path) {
     url.searchParams.set("path", path);
   }
 
-  const response = await fetch(url.toString(), {
+  const response = await fetch(`${url.pathname}${url.search}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -61,31 +57,31 @@ export const api = {
     course_id: string;
     session_id: string;
   }) => {
-    const url = new URL(resolveApiUrl());
+    const url = new URL(resolveApiUrl(), "http://localhost");
     url.searchParams.set("path", "presence/status");
     url.searchParams.set("user_id", params.user_id);
     url.searchParams.set("course_id", params.course_id);
     url.searchParams.set("session_id", params.session_id);
 
-    const response = await fetch(url.toString(), { cache: "no-store" });
+    const response = await fetch(`${url.pathname}${url.search}`, { cache: "no-store" });
     return parseEnvelope<PresenceStatusResponse>(response);
   },
   getGPSMarker: async (device_id: string) => {
-    const url = new URL(resolveApiUrl());
+    const url = new URL(resolveApiUrl(), "http://localhost");
     url.searchParams.set("path", "sensor/gps/marker");
     url.searchParams.set("device_id", device_id);
 
-    const response = await fetch(url.toString(), { cache: "no-store" });
+    const response = await fetch(`${url.pathname}${url.search}`, { cache: "no-store" });
     return parseEnvelope<GPSMarkerResponse>(response);
   },
   getGPSPolyline: async (params: { device_id: string; from?: string; to?: string }) => {
-    const url = new URL(resolveApiUrl());
+    const url = new URL(resolveApiUrl(), "http://localhost");
     url.searchParams.set("path", "sensor/gps/polyline");
     url.searchParams.set("device_id", params.device_id);
     if (params.from) url.searchParams.set("from", params.from);
     if (params.to) url.searchParams.set("to", params.to);
 
-    const response = await fetch(url.toString(), { cache: "no-store" });
+    const response = await fetch(`${url.pathname}${url.search}`, { cache: "no-store" });
     return parseEnvelope<GPSPolylineResponse>(response);
   },
   generateQR: (payload: GenerateQRRequest) =>
