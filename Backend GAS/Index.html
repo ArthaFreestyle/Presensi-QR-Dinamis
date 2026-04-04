@@ -430,10 +430,15 @@
   <div class="footer">GAS Backend API v1</div>
 
   <script>
-    // ── Navigate to Accel Monitor (same GAS deployment URL, different path) ──
+    // ── Navigate to Accel Monitor ──
+    // window.location inside GAS iframe = googleusercontent.com, not the real URL.
+    // We ask the server for the real deployment URL instead.
     function goToAccel() {
-      const baseUrl = window.location.href.split('?')[0];
-      window.location.href = baseUrl + '?path=accel-ui';
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.top.location.href = url + '?path=accel-ui';
+        })
+        .getDeployUrl();
     }
 
     let qrInstance = null;

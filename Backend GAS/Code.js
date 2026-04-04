@@ -129,6 +129,20 @@ function doPost(e) {
 }
 
 
+// ─── NAVIGATION HELPER ───────────────────────────────────────
+
+/**
+ * Called by HTML pages via google.script.run to get the real deployment URL.
+ * window.location inside a GAS iframe points to googleusercontent.com, not
+ * the actual script.google.com deployment URL — so we resolve it server-side.
+ *
+ * @returns {string} The base deployment URL (without query params)
+ */
+function getDeployUrl() {
+    return ScriptApp.getService().getUrl();
+}
+
+
 // ─── RESPONSE HELPERS ───────────────────────────────────────
 
 /**

@@ -349,8 +349,11 @@
 
         // ── Navigation ──
         function goToQR() {
-            const baseUrl = window.location.href.split('?')[0];
-            window.location.href = baseUrl + '?path=ui';
+            google.script.run
+                .withSuccessHandler(function(url) {
+                    window.top.location.href = url + '?path=ui';
+                })
+                .getDeployUrl();
         }
     </script>
 </body>
