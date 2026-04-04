@@ -450,6 +450,28 @@ function getAccelLatest(deviceId) {
     };
 }
 
+/**
+ * Helper to get a list of unique Device IDs from the ACCEL sheet
+ * Called by AccelDashboard.html via google.script.run
+ * 
+ * @returns {Array<string>} List of device_id strings
+ */
+function getAccelDevices() {
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const data = sheet.getDataRange().getValues();
+    const unique = new Set();
+    
+    // Column 0 is device_id, skip header (row 0)
+    for (let i = 1; i < data.length; i++) {
+        const id = data[i][0];
+        if (id) {
+            unique.add(String(id));
+        }
+    }
+    
+    return Array.from(unique);
+}
+
 
 // ─── MODULE 3: GPS TRACKING ────────────────────────────────
 

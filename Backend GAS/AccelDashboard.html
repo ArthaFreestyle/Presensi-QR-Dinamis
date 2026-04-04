@@ -46,11 +46,12 @@
             align-items: center;
             gap: 8px;
         }
-        input[type="text"] {
+        input[type="text"], select {
             padding: 8px 12px;
             border: 1px solid #ccc;
             border-radius: 6px;
             font-size: 14px;
+            min-width: 180px;
         }
         .btn-group {
             display: flex;
@@ -173,7 +174,10 @@
         <div class="header-controls">
             <div class="input-group">
                 <label for="deviceId">Device ID:</label>
-                <input type="text" id="deviceId" placeholder="e.g. fp-abc12345" value="">
+                <select id="deviceId">
+                    <option value="" disabled selected>Memuat device...</option>
+                </select>
+                <button type="button" onclick="loadDevices()" title="Refresh Device List" style="padding: 6px 10px; font-size: 16px; background: transparent; color: #10b981; border: 1px solid #10b981;">🔄</button>
             </div>
             <div class="btn-group">
                 <button id="btnStart" class="btn-start" onclick="startPolling()">▶ Start Polling</button>
@@ -345,7 +349,36 @@
         // Init
         document.addEventListener('DOMContentLoaded', () => {
             initChart();
+            loadDevices();
         });
+
+        // ── Load Devices List ──
+        function loadDevices() {
+            elDeviceId.innerHTML = '<option value="" disabled selected>Memuat device...</option>';
+            elStatusText.textContent = 'Memuat daftar device...';
+            
+            google.script.run
+                .withSuccessHandler((devices) => {
+                    elDeviceId.innerHTML = '<option value="" disabled selected>-- Pilih Device ID --</option>';
+                    if (devices && devices.length > 0) {
+                        devices.forEach(d => {
+                            const opt = document.createElement('option');
+                            opt.value = d;
+                            opt.textContent = d;
+                            elDeviceId.appendChild(opt);
+                        });
+                        elStatusText.textContent = `Daftar device (${devices.length}) berhasil dimuat.`;
+                    } else {
+                        elDeviceId.innerHTML = '<option value="" disabled selected>Belum ada data</option>';
+                        elStatusText.textContent = 'Tidak ada history device.';
+                    }
+                })
+                .withFailureHandler((error) => {
+                    elDeviceId.innerHTML = '<option value="" disabled selected>Gagal memuat</option>';
+                    elStatusText.textContent = `Error: ${error.message}`;
+                })
+                .getAccelDevices();
+        }
 
         // ── Navigation ──
         function goToQR() {
