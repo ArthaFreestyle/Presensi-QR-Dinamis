@@ -50,9 +50,17 @@ function doGet(e) {
             case 'sensor/gps/polyline':
                 return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to));
 
+            case 'telemetry/accel/latest':
+                return sendSuccess(getAccelLatest(params.device_id));
+
             case 'ui':
                 return HtmlService.createHtmlOutputFromFile('Index')
                     .setTitle('Dashboard Presensi QR')
+                    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+
+            case 'accel-ui':
+                return HtmlService.createHtmlOutputFromFile('AccelDashboard')
+                    .setTitle('Accelerometer Dashboard')
                     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 
             default:
@@ -64,7 +72,9 @@ function doGet(e) {
                             '?path=presence/status',
                             '?path=sensor/gps/marker',
                             '?path=sensor/gps/polyline',
+                            '?path=telemetry/accel/latest',
                             '?path=ui',
+                            '?path=accel-ui',
                         ],
                         POST: [
                             '?path=presence/qr/generate',
@@ -353,12 +363,12 @@ function getPresenceStatus(userId, courseId, sessionId) {
  *
  * Batch-writes accelerometer readings using setValues() for performance.
  *
- * @param {Object} body - { device_id, ts, data: [{ x, y, z, ts }] }
+ * @param {Object} body - { device_id, ts, samples: [{ x, y, z, t }] }
  * @returns {Object} { saved: <count> }
  */
 function batchAccel(body) {
-    if (!body.device_id || !Array.isArray(body.data) || body.data.length === 0) {
-        throw new Error('Missing required fields: device_id, data (non-empty array)');
+    if (!body.device_id || !Array.isArray(body.samples) || body.samples.length === 0) {
+        throw new Error('Missing required fields: device_id, samples (non-empty array)');
     }
 
     const sheet = getOrCreateSheet(SHEET.ACCEL);
@@ -366,13 +376,13 @@ function batchAccel(body) {
     const recordedAt = nowISO();
 
     // Columns: device_id, x, y, z, sample_ts, batch_ts, recorded_at
-    const rows = body.data.map(function (r) {
+    const rows = body.samples.map(function (r) {
         return [
             body.device_id,
             r.x || 0,
             r.y || 0,
             r.z || 0,
-            r.ts || nowISO(),   // sample_ts
+            r.t || nowISO(),    // sample_ts
             batchTs,            // batch_ts
             recordedAt,         // recorded_at
         ];
@@ -509,6 +519,69 @@ function getGpsPolyline(deviceId, from, to) {
         count: points.length,
         points: points,
     };
+}
+
+
+// ─── ACCELEROMETER RETRIEVAL (for dashboard) ────────────
+
+/**
+ * GET ?path=telemetry/accel/latest&device_id=...
+ *
+ * Returns the latest accelerometer readings for a device (up to last 50 samples).
+ *
+ * @param {string} deviceId
+ * @returns {Array} Array of { t, x, y, z } objects (most recent last)
+ */
+function getAccelLatest(deviceId) {
+    if (!deviceId) {
+        throw new Error('Missing required parameter: device_id');
+    }
+
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const data = sheet.getDataRange().getValues();
+
+    // Columns: 0=device_id, 1=x, 2=y, 3=z, 4=sample_ts, 5=batch_ts, 6=recorded_at
+    const results = [];
+
+    // Walk through all rows and collect matching device data
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === deviceId) {
+            results.push({
+                t: data[i][4],  // sample_ts
+                x: parseFloat(data[i][1]) || 0,
+                y: parseFloat(data[i][2]) || 0,
+                z: parseFloat(data[i][3]) || 0,
+            });
+        }
+    }
+
+    // Return last 50 samples
+    return results.slice(-50);
+}
+
+/**
+ * Get all unique device IDs that have accelerometer data.
+ * Called by AccelDashboard.html via google.script.run
+ *
+ * @returns {Array} Array of device_id strings
+ */
+function getAccelDevices() {
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const data = sheet.getDataRange().getValues();
+
+    const devices = [];
+    const seen = {};
+
+    // Columns: 0=device_id
+    for (let i = 1; i < data.length; i++) {
+        const deviceId = data[i][0];
+        if (deviceId && !seen[deviceId]) {
+            devices.push(deviceId);
+            seen[deviceId] = true;
+        }
+    }
+
+    return devices.sort();
 }
 
 
