@@ -5,10 +5,12 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import { User, Smartphone, LogOut, CheckCircle2, ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
 import { useUserId } from "@/hooks/useUserId";
+import { useSwabtestMode } from "@/hooks/useSwabtestMode";
 
 type ParsedQr = {
   qr_token: string;
@@ -65,6 +67,7 @@ function parseQrText(rawValue: string): ParsedQr | null {
 export default function PresencePage() {
   const { deviceId } = useDeviceFingerprint();
   const { userId, isConfigured, setUserId, clearUserId } = useUserId();
+  const { isActive } = useSwabtestMode();
 
   const [setupInputId, setSetupInputId] = useState("");
   
@@ -209,6 +212,11 @@ export default function PresencePage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Presensi QR & Check-in</h1>
           <p className="text-sm text-slate-600">Scan QR untuk absen. Device kamu dikenali otomatis.</p>
+          {isActive ? (
+            <Badge variant="warning" className="mt-2">
+              Mode Swabtest aktif
+            </Badge>
+          ) : null}
         </div>
       </section>
 
@@ -329,4 +337,3 @@ export default function PresencePage() {
     </main>
   );
 }
-

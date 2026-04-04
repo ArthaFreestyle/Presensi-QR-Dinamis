@@ -1,176 +1,139 @@
-"use client";
-
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "@/lib/api";
-import type { BatchAccelRequest } from "@/types/api";
+import { BatchAccelDataItem } from "@/types/api";
 
-export interface AccelSample {
-  t: string;
-  x: number;
-  y: number;
-  z: number;
-}
-
-export interface AccelMetrics {
-  samplesCollected: number;
-  batchesSent: number;
-  isCollecting: boolean;
-  lastError: string | null;
+interface AccelerometerData {
+  x: number | null;
+  y: number | null;
+  z: number | null;
 }
 
 export function useAccelerometer(deviceId: string | null) {
-  const [metrics, setMetrics] = useState<AccelMetrics>({
-    samplesCollected: 0,
-    batchesSent: 0,
-    isCollecting: false,
-    lastError: null,
-  });
+  const [isRecording, setIsRecording] = useState(false);
+  const [currentData, setCurrentData] = useState<AccelerometerData>({ x: null, y: null, z: null });
+  const [samplesCount, setSamplesCount] = useState(0);
+  const [batchesSent, setBatchesSent] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
-  const [chartData, setChartData] = useState<AccelSample[]>([]);
+  const bufferRef = useRef<BatchAccelDataItem[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // To avoid spamming React state (could lag mobile devices), we throttle state updates
+  // to about ~10Hz (every 100ms) for the UI, while still buffering every raw event.
+  const lastStateUpdateRef = useRef<number>(0);
 
-  // Use refs for continuous data collection without re-renders
-  const samplesBufferRef = useRef<AccelSample[]>([]);
-  const isCollectingRef = useRef(false);
-  const listenerRef = useRef<((event: DeviceMotionEvent) => void) | null>(null);
-  const sendIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Handle device motion events
   const handleDeviceMotion = useCallback((event: DeviceMotionEvent) => {
-    if (!isCollectingRef.current || !event.acceleration) return;
+    if (!event.accelerationIncludingGravity) {
+      setError("DeviceMotion is not supported or permission denied.");
+      return;
+    }
 
-    const now = new Date().toISOString();
-    const sample: AccelSample = {
-      t: now,
-      x: Math.round((event.acceleration.x || 0) * 100) / 100,
-      y: Math.round((event.acceleration.y || 0) * 100) / 100,
-      z: Math.round((event.acceleration.z || 0) * 100) / 100,
+    const { x, y, z } = event.accelerationIncludingGravity;
+
+    const sample: BatchAccelDataItem = {
+      x: x !== null ? x : 0,
+      y: y !== null ? y : 0,
+      z: z !== null ? z : 0,
+      t: new Date().toISOString()
     };
 
-    samplesBufferRef.current.push(sample);
-
-    // Update metrics and chart data
-    setMetrics((prev) => ({
-      ...prev,
-      samplesCollected: prev.samplesCollected + 1,
-    }));
-
-    // Keep only last 100 samples in chart
-    setChartData((prev) => {
-      const updated = [...prev, sample];
-      return updated.length > 100 ? updated.slice(-100) : updated;
-    });
+    bufferRef.current.push(sample);
+    
+    const now = Date.now();
+    if (now - lastStateUpdateRef.current > 100) {
+      setCurrentData({ x, y, z });
+      setSamplesCount(bufferRef.current.length); // local buffer count or global? We'll maintain a continuous counter
+      lastStateUpdateRef.current = now;
+    }
   }, []);
 
-  // Send batch data every 5 seconds
   const sendBatch = useCallback(async () => {
-    if (!deviceId || samplesBufferRef.current.length === 0) return;
+    if (bufferRef.current.length === 0 || !deviceId) return;
 
-    const batch: BatchAccelRequest = {
-      device_id: deviceId,
-      ts: new Date().toISOString(),
-      samples: samplesBufferRef.current,
-    };
+    const samples = [...bufferRef.current];
+    bufferRef.current = []; // Clear buffer immediately
 
     try {
-      const result = await api.logBatchAccel(batch);
+      const response = await api.logBatchAccel({
+        device_id: deviceId,
+        samples,
+        ts: new Date().toISOString()
+      });
 
-      if (!result.ok) {
-        setMetrics((prev) => ({
-          ...prev,
-          lastError: result.error || "Failed to send batch",
-        }));
-        return;
+      if (response.ok) {
+        setBatchesSent(prev => prev + 1);
+      } else {
+        console.error("Failed to send accelerometer batch", response.error);
       }
-
-      // Clear buffer on successful send
-      samplesBufferRef.current = [];
-      setMetrics((prev) => ({
-        ...prev,
-        batchesSent: prev.batchesSent + 1,
-        lastError: null,
-      }));
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      setMetrics((prev) => ({
-        ...prev,
-        lastError: errorMsg,
-      }));
+    } catch (err: any) {
+      console.error("Exception while sending accelerometer batch:", err);
     }
   }, [deviceId]);
 
-  // Start collecting accelerometer data
-  const startCollection = useCallback(() => {
-    if (!deviceId || isCollectingRef.current) return;
-
-    isCollectingRef.current = true;
-    listenerRef.current = handleDeviceMotion;
-
-    // Request permission for iOS 13+
-    if (typeof DeviceMotionEvent !== "undefined" && "requestPermission" in DeviceMotionEvent) {
-      (DeviceMotionEvent as any)
-        .requestPermission()
-        .then((permission: string) => {
-          if (permission === "granted") {
-            window.addEventListener("devicemotion", listenerRef.current!);
-          }
-        })
-        .catch(() => {
-          setMetrics((prev) => ({
-            ...prev,
-            lastError: "Permission denied for device motion",
-          }));
-        });
-    } else {
-      // Non-iOS or older iOS devices
-      window.addEventListener("devicemotion", listenerRef.current);
+  const startRecording = async () => {
+    setError(null);
+    if (!deviceId) {
+      setError("Waiting for device ID to initialize.");
+      return;
     }
 
-    // Set up batch sending interval (5 seconds)
-    sendIntervalRef.current = setInterval(sendBatch, 5000);
-
-    setMetrics((prev) => ({
-      ...prev,
-      isCollecting: true,
-      lastError: null,
-    }));
-  }, [deviceId, handleDeviceMotion, sendBatch]);
-
-  // Stop collecting accelerometer data
-  const stopCollection = useCallback(() => {
-    isCollectingRef.current = false;
-
-    if (listenerRef.current) {
-      window.removeEventListener("devicemotion", listenerRef.current);
-      listenerRef.current = null;
+    // Handle iOS 13+ permission request
+    if (typeof (window as any).DeviceMotionEvent !== 'undefined' && typeof (window as any).DeviceMotionEvent.requestPermission === 'function') {
+      try {
+        const permission = await (window as any).DeviceMotionEvent.requestPermission();
+        if (permission !== 'granted') {
+          setError("Izin sensor accelerometer ditolak.");
+          return;
+        }
+      } catch (err: any) {
+        setError(`Error requesting permission: ${err.message}`);
+        return;
+      }
     }
 
-    if (sendIntervalRef.current) {
-      clearInterval(sendIntervalRef.current);
-      sendIntervalRef.current = null;
+    setSamplesCount(0);
+    setBatchesSent(0);
+    bufferRef.current = [];
+
+    window.addEventListener("devicemotion", handleDeviceMotion);
+    
+    // Send batch every 5 seconds
+    timerRef.current = setInterval(sendBatch, 5000);
+    setIsRecording(true);
+  };
+
+  const stopRecording = useCallback(() => {
+    window.removeEventListener("devicemotion", handleDeviceMotion);
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
+    
+    // Flush remaining
+    if (bufferRef.current.length > 0) {
+      sendBatch();
+    }
+    
+    setIsRecording(false);
+  }, [handleDeviceMotion, sendBatch]);
 
-    // Send any remaining samples
-    sendBatch();
-
-    setMetrics((prev) => ({
-      ...prev,
-      isCollecting: false,
-    }));
-  }, [sendBatch]);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (isCollectingRef.current) {
-        stopCollection();
+      // Cleanup on unmount
+      if (isRecording) {
+        stopRecording();
       }
     };
-  }, [stopCollection]);
+  }, [isRecording, stopRecording]);
 
   return {
-    metrics,
-    chartData,
-    startCollection,
-    stopCollection,
+    isRecording,
+    currentData,
+    samplesCount,
+    batchesSent,
+    error,
+    startRecording,
+    stopRecording
   };
 }

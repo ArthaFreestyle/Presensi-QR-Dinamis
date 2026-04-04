@@ -31,8 +31,8 @@ const QR_TOKEN_TTL_MS = 120 * 1000;
  *
  * Supported paths:
  *   ?path=presence/status
- *   ?path=sensor/gps/marker
- *   ?path=sensor/gps/polyline
+ *   ?path=telemetry/gps/latest
+ *   ?path=telemetry/gps/history
  *   ?path=ui  (default — serves Dashboard HTML)
  */
 function doGet(e) {
@@ -44,14 +44,19 @@ function doGet(e) {
             case 'presence/status':
                 return sendSuccess(getPresenceStatus(params.user_id, params.course_id, params.session_id));
 
-            case 'sensor/gps/marker':
-                return sendSuccess(getGpsMarker(params.device_id));
-
-            case 'sensor/gps/polyline':
-                return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to));
-
             case 'telemetry/accel/latest':
                 return sendSuccess(getAccelLatest(params.device_id));
+
+            case 'telemetry/gps/latest':
+                return sendSuccess(getGpsLatest(params.device_id));
+
+            case 'telemetry/gps/history':
+                return sendSuccess(getGpsHistory(params.device_id, params.limit));
+
+            case 'accel-ui':
+                return HtmlService.createHtmlOutputFromFile('AccelDashboard')
+                    .setTitle('Accelerometer Monitor')
+                    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 
             case 'ui':
                 return HtmlService.createHtmlOutputFromFile('Index')
@@ -70,17 +75,17 @@ function doGet(e) {
                     endpoints: {
                         GET: [
                             '?path=presence/status',
-                            '?path=sensor/gps/marker',
-                            '?path=sensor/gps/polyline',
                             '?path=telemetry/accel/latest',
+                            '?path=telemetry/gps/latest',
+                            '?path=telemetry/gps/history',
                             '?path=ui',
                             '?path=accel-ui',
                         ],
                         POST: [
                             '?path=presence/qr/generate',
                             '?path=presence/checkin',
-                            '?path=sensor/accel/batch',
-                            '?path=sensor/gps',
+                            '?path=telemetry/accel',
+                            '?path=telemetry/gps',
                         ],
                     },
                 });
@@ -96,8 +101,8 @@ function doGet(e) {
  * Supported paths:
  *   ?path=presence/qr/generate
  *   ?path=presence/checkin
- *   ?path=sensor/accel/batch
- *   ?path=sensor/gps
+ *   ?path=telemetry/accel
+ *   ?path=telemetry/gps
  */
 function doPost(e) {
     try {
@@ -111,11 +116,15 @@ function doPost(e) {
             case 'presence/checkin':
                 return sendSuccess(checkin(body));
 
-            case 'sensor/accel/batch':
+            case 'telemetry/accel':
                 return sendSuccess(batchAccel(body));
 
-            case 'sensor/gps':
+            case 'telemetry/gps':
                 return sendSuccess(logGPS(body));
+
+            case 'telemetry/gps':
+                logGPS(body);
+                return sendSuccess({ accepted: true });
 
             default:
                 return sendError('Unknown endpoint: POST ?' + path);
@@ -123,6 +132,20 @@ function doPost(e) {
     } catch (err) {
         return sendError(err.message);
     }
+}
+
+
+// ─── NAVIGATION HELPER ───────────────────────────────────────
+
+/**
+ * Called by HTML pages via google.script.run to get the real deployment URL.
+ * window.location inside a GAS iframe points to googleusercontent.com, not
+ * the actual script.google.com deployment URL — so we resolve it server-side.
+ *
+ * @returns {string} The base deployment URL (without query params)
+ */
+function getDeployUrl() {
+    return ScriptApp.getService().getUrl();
 }
 
 
@@ -359,12 +382,12 @@ function getPresenceStatus(userId, courseId, sessionId) {
 // ─── MODULE 2: ACCELEROMETER BATCH ─────────────────────────
 
 /**
- * POST ?path=sensor/accel/batch
+ * POST ?path=telemetry/accel
  *
  * Batch-writes accelerometer readings using setValues() for performance.
  *
  * @param {Object} body - { device_id, ts, samples: [{ x, y, z, t }] }
- * @returns {Object} { saved: <count> }
+ * @returns {Object} { accepted: <count> }
  */
 function batchAccel(body) {
     if (!body.device_id || !Array.isArray(body.samples) || body.samples.length === 0) {
@@ -382,7 +405,7 @@ function batchAccel(body) {
             r.x || 0,
             r.y || 0,
             r.z || 0,
-            r.t || nowISO(),    // sample_ts
+            r.t || nowISO(),   // sample_ts
             batchTs,            // batch_ts
             recordedAt,         // recorded_at
         ];
@@ -393,20 +416,78 @@ function batchAccel(body) {
     sheet.getRange(lastRow + 1, 1, rows.length, rows[0].length).setValues(rows);
 
     return {
-        saved: rows.length,
+        accepted: rows.length,
     };
+}
+
+/**
+ * GET ?path=telemetry/accel/latest&device_id=...
+ *
+ * Returns the latest accelerometer reading for a device.
+ *
+ * @param {string} deviceId
+ * @returns {Object}
+ */
+function getAccelLatest(deviceId) {
+    if (!deviceId) {
+        throw new Error('Missing required parameter: device_id');
+    }
+
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const data = sheet.getDataRange().getValues();
+
+    // Columns: 0=device_id, 1=x, 2=y, 3=z, 4=sample_ts, 5=batch_ts, 6=recorded_at
+    for (let i = data.length - 1; i >= 1; i--) {
+        if (data[i][0] === deviceId) {
+            return {
+                t: data[i][4] || null,
+                x: data[i][1] || null,
+                y: data[i][2] || null,
+                z: data[i][3] || null,
+            };
+        }
+    }
+
+    return {
+        t: null,
+        x: null,
+        y: null,
+        z: null,
+    };
+}
+
+/**
+ * Helper to get a list of unique Device IDs from the ACCEL sheet
+ * Called by AccelDashboard.html via google.script.run
+ * 
+ * @returns {Array<string>} List of device_id strings
+ */
+function getAccelDevices() {
+    const sheet = getOrCreateSheet(SHEET.ACCEL);
+    const data = sheet.getDataRange().getValues();
+    const unique = new Set();
+    
+    // Column 0 is device_id, skip header (row 0)
+    for (let i = 1; i < data.length; i++) {
+        const id = data[i][0];
+        if (id) {
+            unique.add(String(id));
+        }
+    }
+    
+    return Array.from(unique);
 }
 
 
 // ─── MODULE 3: GPS TRACKING ────────────────────────────────
 
 /**
- * POST ?path=sensor/gps
+ * POST ?path=telemetry/gps
  *
  * Logs a single GPS coordinate.
  *
- * @param {Object} body - { device_id, lat, lng, ts, accuracy?, altitude? }
- * @returns {Object} { recorded: true }
+ * @param {Object} body - { device_id, lat, lng, ts, accuracy_m? }
+ * @returns {Object} { accepted: true }
  */
 function logGPS(body) {
     if (!body.device_id || body.lat === undefined || body.lng === undefined) {
@@ -420,7 +501,7 @@ function logGPS(body) {
         body.device_id,
         body.lat,
         body.lng,
-        body.accuracy || '',
+        body.accuracy_m || body.accuracy || '',
         body.altitude || '',
         body.ts || nowISO(),
         nowISO(),              // recorded_at
@@ -429,19 +510,19 @@ function logGPS(body) {
     sheet.appendRow(row);
 
     return {
-        recorded: true,
+        accepted: true,
     };
 }
 
 /**
- * GET ?path=sensor/gps/marker&device_id=...
+ * GET ?path=telemetry/gps/latest&device_id=...
  *
  * Returns the single most recent GPS coordinate for a device (for Marker).
  *
  * @param {string} deviceId
  * @returns {Object}
  */
-function getGpsMarker(deviceId) {
+function getGpsLatest(deviceId) {
     if (!deviceId) {
         throw new Error('Missing required parameter: device_id');
     }
@@ -453,135 +534,60 @@ function getGpsMarker(deviceId) {
     for (let i = data.length - 1; i >= 1; i--) {
         if (data[i][0] === deviceId) {
             return {
-                device_id: deviceId,
+                ts: data[i][5],
                 lat: data[i][1],
                 lng: data[i][2],
-                accuracy: data[i][3],
-                altitude: data[i][4],
-                ts: data[i][5],
+                accuracy_m: data[i][3] || null,
             };
         }
     }
 
     return {
-        device_id: deviceId,
+        ts: null,
         lat: null,
         lng: null,
-        ts: null,
+        accuracy_m: null,
     };
 }
 
 /**
- * GET ?path=sensor/gps/polyline&device_id=...&from=ISO&to=ISO
+ * GET ?path=telemetry/gps/history&device_id=...&limit=200
  *
- * Returns an array of GPS coordinates within a time range (for Polyline).
+ * Returns the N most recent GPS coordinates for a device (for Polyline).
  *
  * @param {string} deviceId
- * @param {string} from - ISO-8601 datetime
- * @param {string} to   - ISO-8601 datetime
+ * @param {string|number} limit - max number of points (default 200)
  * @returns {Object}
  */
-function getGpsPolyline(deviceId, from, to) {
+function getGpsHistory(deviceId, limit) {
     if (!deviceId) {
         throw new Error('Missing required parameter: device_id');
     }
 
+    const maxItems = Math.min(parseInt(limit) || 200, 1000);
     const sheet = getOrCreateSheet(SHEET.GPS);
     const data = sheet.getDataRange().getValues();
 
-    // Default window: last 24 hours
-    const now = new Date();
-    const startTime = from ? new Date(from) : new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const endTime = to ? new Date(to) : now;
-
-    const points = [];
+    const items = [];
 
     // Columns: 0=device_id, 1=lat, 2=lng, 3=accuracy, 4=altitude, 5=ts, 6=recorded_at
-    for (let i = 1; i < data.length; i++) {
+    // Walk backwards to get most recent first, then reverse for chronological order
+    for (let i = data.length - 1; i >= 1 && items.length < maxItems; i--) {
         if (data[i][0] !== deviceId) continue;
 
-        const rowTime = new Date(data[i][5]);
-        if (rowTime >= startTime && rowTime <= endTime) {
-            points.push({
-                lat: data[i][1],
-                lng: data[i][2],
-                accuracy: data[i][3],
-                altitude: data[i][4],
-                ts: data[i][5],
-            });
-        }
+        items.push({
+            ts: data[i][5],
+            lat: data[i][1],
+            lng: data[i][2],
+        });
     }
+
+    items.reverse(); // chronological order (oldest first)
 
     return {
         device_id: deviceId,
-        from: startTime.toISOString(),
-        to: endTime.toISOString(),
-        count: points.length,
-        points: points,
+        items: items,
     };
-}
-
-
-// ─── ACCELEROMETER RETRIEVAL (for dashboard) ────────────
-
-/**
- * GET ?path=telemetry/accel/latest&device_id=...
- *
- * Returns the latest accelerometer readings for a device (up to last 50 samples).
- *
- * @param {string} deviceId
- * @returns {Array} Array of { t, x, y, z } objects (most recent last)
- */
-function getAccelLatest(deviceId) {
-    if (!deviceId) {
-        throw new Error('Missing required parameter: device_id');
-    }
-
-    const sheet = getOrCreateSheet(SHEET.ACCEL);
-    const data = sheet.getDataRange().getValues();
-
-    // Columns: 0=device_id, 1=x, 2=y, 3=z, 4=sample_ts, 5=batch_ts, 6=recorded_at
-    const results = [];
-
-    // Walk through all rows and collect matching device data
-    for (let i = 1; i < data.length; i++) {
-        if (data[i][0] === deviceId) {
-            results.push({
-                t: data[i][4],  // sample_ts
-                x: parseFloat(data[i][1]) || 0,
-                y: parseFloat(data[i][2]) || 0,
-                z: parseFloat(data[i][3]) || 0,
-            });
-        }
-    }
-
-    // Return last 50 samples
-    return results.slice(-50);
-}
-
-/**
- * Get all unique device IDs that have accelerometer data.
- * Called by AccelDashboard.html via google.script.run
- *
- * @returns {Array} Array of device_id strings
- */
-function getAccelDevices() {
-    const sheet = getOrCreateSheet(SHEET.ACCEL);
-    const data = sheet.getDataRange().getValues();
-
-    const devices = [];
-    const seen = {};
-
-    // Columns: 0=device_id
-    for (let i = 1; i < data.length; i++) {
-        const deviceId = data[i][0];
-        if (deviceId && !seen[deviceId]) {
-            devices.push(deviceId);
-            seen[deviceId] = true;
-        }
-    }
-
-    return devices.sort();
 }
 
 

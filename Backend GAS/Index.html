@@ -301,6 +301,46 @@
       text-transform: uppercase;
     }
 
+    /* ── Nav Bar ── */
+    .nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      gap: 6px;
+      padding: 10px 16px;
+      background: rgba(15, 15, 19, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-bar a {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+    .nav-bar a:hover {
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+    .nav-bar a.active {
+      color: white;
+      background: var(--accent);
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+    body.has-nav {
+      padding-top: 3.5rem;
+    }
+
     .token-display {
       font-family: var(--mono);
       font-size: 0.9rem;
@@ -316,7 +356,12 @@
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body>
+<body class="has-nav">
+
+  <nav class="nav-bar">
+    <a href="javascript:void(0);" onclick="goToQR(); return false;" class="active">📋 QR Generate</a>
+    <a href="javascript:void(0);" onclick="goToAccel(); return false;">📊 Accel Monitor</a>
+  </nav>
 
   <div class="card">
     <span class="badge">Presensi QR</span>
@@ -385,6 +430,23 @@
   <div class="footer">GAS Backend API v1</div>
 
   <script>
+    // ── Navigate to Accel Monitor ──
+    function goToAccel() {
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.top.location.href = url + '?path=accel-ui';
+        })
+        .getDeployUrl();
+    }
+    
+    function goToQR() {
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.top.location.href = url + '?path=ui';
+        })
+        .getDeployUrl();
+    }
+
     let qrInstance = null;
     let autoInterval = null;
     let countdownRAF = null;

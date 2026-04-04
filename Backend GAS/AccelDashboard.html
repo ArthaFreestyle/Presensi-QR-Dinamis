@@ -1,708 +1,401 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <base target="_top">
-  <title>Accelerometer Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-  <style>
-    :root {
-      --bg: #0f0f13;
-      --surface: #1a1a23;
-      --surface-hover: #22222e;
-      --border: #2a2a38;
-      --accent: #6c5ce7;
-      --accent-glow: rgba(108, 92, 231, 0.35);
-      --accent-light: #a29bfe;
-      --success: #00cec9;
-      --danger: #fd79a8;
-      --chart-x: #ef4444;
-      --chart-y: #22c55e;
-      --chart-z: #3b82f6;
-      --text: #e8e8ef;
-      --text-muted: #8888a0;
-      --font: 'DM Sans', sans-serif;
-      --mono: 'JetBrains Mono', monospace;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accelerometer Monitor</title>
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 24px;
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="text"], select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 180px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-start {
+            background-color: #10b981;
+            color: white;
+        }
+        .btn-start:hover:not(:disabled) {
+            background-color: #059669;
+        }
+        .btn-stop {
+            background-color: #ef4444;
+            color: white;
+        }
+        .btn-stop:hover:not(:disabled) {
+            background-color: #dc2626;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .status-panel {
+            background-color: #f1f5f9;
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #94a3b8;
+            margin-right: 6px;
+        }
+        .status-indicator.active {
+            background-color: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+            animation: pulse 1.5s infinite;
+        }
+        .status-indicator.error {
+            background-color: #ef4444;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 2rem;
-      overflow-x: hidden;
-    }
-
-    /* Ambient background */
-    body::before {
-      content: '';
-      position: fixed;
-      top: -30%;
-      left: -20%;
-      width: 60%;
-      height: 60%;
-      background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
-      animation: float 8s ease-in-out infinite alternate;
-    }
-
-    @keyframes float {
-      0% { transform: translate(0, 0) scale(1); }
-      100% { transform: translate(30px, -20px) scale(1.05); }
-    }
-
-    .container {
-      position: relative;
-      z-index: 1;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    header {
-      margin-bottom: 2.5rem;
-      animation: slideDown 0.6s ease-out;
-    }
-
-    @keyframes slideDown {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    header h1 {
-      font-size: 2.2rem;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      margin-bottom: 0.5rem;
-    }
-
-    header p {
-      font-size: 1rem;
-      color: var(--text-muted);
-    }
-
-    /* Control Panel */
-    .controls {
-      display: grid;
-      grid-template-columns: 1fr 200px;
-      gap: 1.5rem;
-      margin-bottom: 2rem;
-      align-items: end;
-    }
-
-    .control-group {
-      animation: slideUp 0.6s ease-out;
-    }
-
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .control-group label {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 8px;
-    }
-
-    select {
-      width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 0.9rem;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      appearance: none;
-      cursor: pointer;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23a29bfe' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      padding-right: 32px;
-    }
-
-    select:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
-    }
-
-    .control-buttons {
-      display: flex;
-      gap: 10px;
-    }
-
-    button {
-      flex: 1;
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 12px 16px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-family: var(--font);
-      font-weight: 600;
-      transition: all 0.25s ease;
-      font-size: 0.9rem;
-    }
-
-    button:hover:not(:disabled) {
-      background: #5b4bd5;
-      box-shadow: 0 8px 25px var(--accent-glow);
-      transform: translateY(-2px);
-    }
-
-    button:active:not(:disabled) {
-      transform: translateY(0);
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    button.stop {
-      background: var(--danger);
-      flex: none;
-      width: 50px;
-      padding: 12px 0;
-    }
-
-    button.stop:hover:not(:disabled) {
-      background: #f06298;
-      box-shadow: 0 8px 25px rgba(253, 121, 168, 0.35);
-    }
-
-    /* Status Bar */
-    .status-bar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 1rem 1.5rem;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      margin-bottom: 2rem;
-      font-size: 0.9rem;
-      animation: slideUp 0.6s ease-out 0.1s both;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      background: var(--text-muted);
-      animation: pulse 2s infinite;
-    }
-
-    .status-dot.polling {
-      background: var(--success);
-      box-shadow: 0 0 10px var(--success);
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .status-text {
-      flex: 1;
-      color: var(--text-muted);
-    }
-
-    .device-info {
-      font-family: var(--mono);
-      color: var(--accent-light);
-      font-size: 0.85rem;
-    }
-
-    /* Chart Container */
-    .chart-wrapper {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-      animation: slideUp 0.6s ease-out 0.2s both;
-    }
-
-    .chart-container {
-      position: relative;
-      height: 400px;
-      margin-bottom: 1.5rem;
-    }
-
-    canvas {
-      max-height: 400px;
-    }
-
-    .chart-legend {
-      display: flex;
-      justify-content: center;
-      gap: 2rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--border);
-      font-size: 0.9rem;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .legend-color {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
-      flex-shrink: 0;
-    }
-
-    .legend-color.x { background: var(--chart-x); }
-    .legend-color.y { background: var(--chart-y); }
-    .legend-color.z { background: var(--chart-z); }
-
-    /* Info Card */
-    .info-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      animation: slideUp 0.6s ease-out 0.3s both;
-    }
-
-    .info-card h3 {
-      font-size: 1rem;
-      margin-bottom: 0.8rem;
-      color: var(--accent-light);
-    }
-
-    .info-content {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-      font-size: 0.9rem;
-      line-height: 1.6;
-    }
-
-    .info-item {
-      padding: 1rem;
-      background: var(--bg);
-      border-radius: 10px;
-      border: 1px solid var(--border);
-    }
-
-    .info-item strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .error-message {
-      background: rgba(253, 121, 168, 0.1);
-      border: 1px solid var(--danger);
-      color: #fd79a8;
-      padding: 1rem;
-      border-radius: 10px;
-      margin-bottom: 1.5rem;
-      font-size: 0.9rem;
-    }
-
-    .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 400px;
-      color: var(--text-muted);
-      text-align: center;
-    }
-
-    .empty-state p {
-      margin-bottom: 0.5rem;
-    }
-
-    .empty-state .hint {
-      font-size: 0.85rem;
-    }
-
-    @media (max-width: 768px) {
-      .controls {
-        grid-template-columns: 1fr;
-      }
-
-      header h1 {
-        font-size: 1.5rem;
-      }
-
-      .chart-wrapper {
-        padding: 1rem;
-      }
-
-      .chart-legend {
-        flex-wrap: wrap;
-        gap: 1rem;
-      }
-
-      .info-content {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+        /* ── Nav Bar ── */
+        .nav-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            gap: 6px;
+            padding: 10px 16px;
+            background: rgba(248, 249, 250, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .nav-bar a {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            color: #64748b;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+        }
+        .nav-bar a:hover {
+            color: #1e293b;
+            background: #e2e8f0;
+        }
+        .nav-bar a.active {
+            color: white;
+            background: #10b981;
+            box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+        }
+        body { padding-top: 3.5rem; }
+    </style>
 </head>
 <body>
 
-  <div class="container">
-    <!-- Header -->
-    <header>
-      <h1>Accelerometer Data Dashboard</h1>
-      <p>Real-time monitoring of device accelerometer readings</p>
-    </header>
+    <nav class="nav-bar">
+        <a href="javascript:void(0);" onclick="goToQR(); return false;">📋 QR Generate</a>
+        <a href="javascript:void(0);" onclick="goToAccel(); return false;" class="active">📊 Accel Monitor</a>
+    </nav>
 
-    <!-- Error Message -->
-    <div id="error-container"></div>
+    <div class="container">
+        <h1>📊 Accelerometer Monitor</h1>
+        
+        <div class="header-controls">
+            <div class="input-group">
+                <label for="deviceId">Device ID:</label>
+                <select id="deviceId">
+                    <option value="" disabled selected>Memuat device...</option>
+                </select>
+                <button type="button" onclick="loadDevices()" title="Refresh Device List" style="padding: 6px 10px; font-size: 16px; background: transparent; color: #10b981; border: 1px solid #10b981;">🔄</button>
+            </div>
+            <div class="btn-group">
+                <button id="btnStart" class="btn-start" onclick="startPolling()">▶ Start Polling</button>
+                <button id="btnStop" class="btn-stop" onclick="stopPolling()" disabled>⏸ Stop</button>
+            </div>
+        </div>
 
-    <!-- Controls -->
-    <div class="controls">
-      <div class="control-group">
-        <label for="device-select">Select Device</label>
-        <select id="device-select">
-          <option value="">Loading devices...</option>
-        </select>
-      </div>
-      <div class="control-buttons">
-        <button id="btn-start" onclick="startPolling()">Start Polling</button>
-        <button id="btn-stop" class="stop" onclick="stopPolling()" disabled>Stop</button>
-      </div>
+        <div class="chart-container">
+            <canvas id="accelChart"></canvas>
+        </div>
+
+        <div class="status-panel">
+            <div>
+                <span id="statusIndicator" class="status-indicator"></span>
+                <span id="statusText">System idle. Enter Device ID and start polling.</span>
+            </div>
+            <div>
+                Last update: <span id="lastUpdateTs">-</span>
+            </div>
+        </div>
     </div>
 
-    <!-- Status -->
-    <div class="status-bar">
-      <div class="status-dot" id="status-dot"></div>
-      <span class="status-text" id="status-text">Ready to poll device data</span>
-      <span class="device-info" id="device-info"></span>
-    </div>
+    <script>
+        // Constants & State
+        const MAX_DATA_POINTS = 50;
+        const POLLING_INTERVAL_MS = 2000;
+        let pollingTimer = null;
+        let chart = null;
 
-    <!-- Chart -->
-    <div class="chart-wrapper">
-      <div class="chart-container" id="chart-container">
-        <div class="empty-state">
-          <p>No data yet</p>
-          <p class="hint">Select a device and start polling to see data</p>
-        </div>
-      </div>
-      <div class="chart-legend">
-        <div class="legend-item">
-          <div class="legend-color x"></div>
-          <span>X-axis (m/s²)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color y"></div>
-          <span>Y-axis (m/s²)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color z"></div>
-          <span>Z-axis (m/s²)</span>
-        </div>
-      </div>
-    </div>
+        // Elements
+        const elDeviceId = document.getElementById('deviceId');
+        const elBtnStart = document.getElementById('btnStart');
+        const elBtnStop = document.getElementById('btnStop');
+        const elStatusIndicator = document.getElementById('statusIndicator');
+        const elStatusText = document.getElementById('statusText');
+        const elLastUpdateTs = document.getElementById('lastUpdateTs');
 
-    <!-- Info -->
-    <div class="info-card">
-      <h3>Dashboard Information</h3>
-      <div class="info-content">
-        <div class="info-item">
-          <strong>Real-time Monitoring:</strong>
-          <p>Select a device ID and click "Start Polling" to continuously monitor accelerometer readings from the selected device.</p>
-        </div>
-        <div class="info-item">
-          <strong>Data Retention:</strong>
-          <p>The chart displays up to 50 most recent data points. New readings are automatically added as they arrive.</p>
-        </div>
-        <div class="info-item">
-          <strong>Update Frequency:</strong>
-          <p>Data is fetched every 2-3 seconds from the backend API endpoint <code>?path=telemetry/accel/latest</code>.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let chart = null;
-    let pollingInterval = null;
-    let isPolling = false;
-    const POLL_INTERVAL_MS = 2500; // 2.5 seconds
-    const MAX_POINTS = 50;
-
-    // ─── Initialization ───────────────────────────────────
-
-    function init() {
-      loadDevices();
-    }
-
-    function loadDevices() {
-      google.script.run
-        .withSuccessHandler((devices) => {
-          populateDeviceSelect(devices);
-        })
-        .withFailureHandler((error) => {
-          showError('Failed to load devices: ' + error);
-        })
-        .getAccelDevices();
-    }
-
-    function populateDeviceSelect(devices) {
-      const select = document.getElementById('device-select');
-      select.innerHTML = '';
-
-      if (!devices || devices.length === 0) {
-        select.innerHTML = '<option value="">No devices found</option>';
-        return;
-      }
-
-      devices.forEach((deviceId) => {
-        const option = document.createElement('option');
-        option.value = deviceId;
-        option.textContent = deviceId;
-        select.appendChild(option);
-      });
-
-      select.value = devices[0] || '';
-    }
-
-    // ─── Polling Control ───────────────────────────────────
-
-    function startPolling() {
-      const deviceId = document.getElementById('device-select').value;
-      if (!deviceId) {
-        showError('Please select a device first');
-        return;
-      }
-
-      isPolling = true;
-      document.getElementById('btn-start').disabled = true;
-      document.getElementById('btn-stop').disabled = false;
-      document.getElementById('status-dot').classList.add('polling');
-      document.getElementById('status-text').textContent = 'Polling ' + deviceId + '...';
-
-      // Poll immediately, then every interval
-      pollData(deviceId);
-      pollingInterval = setInterval(() => pollData(deviceId), POLL_INTERVAL_MS);
-    }
-
-    function stopPolling() {
-      isPolling = false;
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-      }
-      document.getElementById('btn-start').disabled = false;
-      document.getElementById('btn-stop').disabled = true;
-      document.getElementById('status-dot').classList.remove('polling');
-      document.getElementById('status-text').textContent = 'Polling stopped';
-      document.getElementById('device-info').textContent = '';
-    }
-
-    function pollData(deviceId) {
-      google.script.run
-        .withSuccessHandler((data) => {
-          updateChart(data);
-        })
-        .withFailureHandler((error) => {
-          console.error('Poll error:', error);
-        })
-        .getAccelLatest(deviceId);
-    }
-
-    // ─── Chart Management ───────────────────────────────────
-
-    function updateChart(data) {
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        // Show empty state
-        document.getElementById('chart-container').innerHTML =
-          '<div class="empty-state"><p>No data available</p><p class="hint">Waiting for device readings...</p></div>';
-        return;
-      }
-
-      // Keep only last MAX_POINTS
-      const displayData = data.slice(-MAX_POINTS);
-
-      // Format for Chart.js
-      const labels = displayData.map((d) => {
-        const date = new Date(d.t);
-        return date.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          fractionalSecondDigits: 1,
-        });
-      });
-
-      const xValues = displayData.map((d) => d.x || 0);
-      const yValues = displayData.map((d) => d.y || 0);
-      const zValues = displayData.map((d) => d.z || 0);
-
-      // Create or update chart
-      if (chart) {
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = xValues;
-        chart.data.datasets[1].data = yValues;
-        chart.data.datasets[2].data = zValues;
-        chart.update('none'); // No animation
-      } else {
-        createChart(labels, xValues, yValues, zValues);
-      }
-
-      // Update device info
-      if (data.length > 0) {
-        const latest = data[data.length - 1];
-        document.getElementById('device-info').textContent =
-          'Latest: ' + new Date(latest.t).toLocaleTimeString('en-US');
-      }
-    }
-
-    function createChart(labels, xData, yData, zData) {
-      const ctx = document.getElementById('chart-container');
-      ctx.innerHTML = '<canvas id="accel-chart"></canvas>';
-
-      chart = new Chart(document.getElementById('accel-chart'), {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: 'X-axis',
-              data: xData,
-              borderColor: 'var(--chart-x)',
-              backgroundColor: 'rgba(239, 68, 68, 0.05)',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.3,
-              pointRadius: 2,
-              pointBackgroundColor: 'var(--chart-x)',
-              pointBorderColor: 'transparent',
-              pointHoverRadius: 4,
-            },
-            {
-              label: 'Y-axis',
-              data: yData,
-              borderColor: 'var(--chart-y)',
-              backgroundColor: 'rgba(34, 197, 94, 0.05)',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.3,
-              pointRadius: 2,
-              pointBackgroundColor: 'var(--chart-y)',
-              pointBorderColor: 'transparent',
-              pointHoverRadius: 4,
-            },
-            {
-              label: 'Z-axis',
-              data: zData,
-              borderColor: 'var(--chart-z)',
-              backgroundColor: 'rgba(59, 130, 246, 0.05)',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.3,
-              pointRadius: 2,
-              pointBackgroundColor: 'var(--chart-z)',
-              pointBorderColor: 'transparent',
-              pointHoverRadius: 4,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: {
-            mode: 'index',
-            intersect: false,
-          },
-          plugins: {
-            legend: {
-              display: false,
-            },
-            tooltip: {
-              enabled: true,
-              backgroundColor: 'var(--surface)',
-              borderColor: 'var(--border)',
-              borderWidth: 1,
-              padding: 8,
-              titleColor: 'var(--text)',
-              bodyColor: 'var(--text)',
-              bodyFont: { family: "var(--mono)" },
-              titleFont: { size: 12 },
-              bodyFont: { size: 11 },
-              callbacks: {
-                afterLabel: function (context) {
-                  if (context.dataIndex === context.chart.data.labels.length - 1) {
-                    return '(latest)';
-                  }
+        // Initialize Chart.js
+        function initChart() {
+            const ctx = document.getElementById('accelChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'X Axis',
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            data: [],
+                            tension: 0.4,
+                            pointRadius: 2
+                        },
+                        {
+                            label: 'Y Axis',
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            data: [],
+                            tension: 0.4,
+                            pointRadius: 2
+                        },
+                        {
+                            label: 'Z Axis',
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            data: [],
+                            tension: 0.4,
+                            pointRadius: 2
+                        }
+                    ]
                 },
-              },
-            },
-          },
-          scales: {
-            x: {
-              grid: {
-                color: 'var(--border)',
-                drawBorder: false,
-              },
-              ticks: {
-                color: 'var(--text-muted)',
-                font: { size: 10 },
-                maxRotation: 45,
-                minRotation: 0,
-              },
-            },
-            y: {
-              grid: {
-                color: 'var(--border)',
-                drawBorder: false,
-              },
-              ticks: {
-                color: 'var(--text-muted)',
-                font: { size: 10 },
-              },
-              title: {
-                display: true,
-                text: 'Acceleration (m/s²)',
-                color: 'var(--text-muted)',
-                font: { size: 11 },
-              },
-            },
-          },
-        },
-      });
-    }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            suggestedMin: -15,
+                            suggestedMax: 15
+                        },
+                        x: {
+                            ticks: {
+                                display: false // Hide X-axis labels to avoid clutter
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 0 // Disable animation for performance
+                    }
+                }
+            });
+        }
 
-    // ─── Helper Functions ───────────────────────────────────
+        function updateChartData(t, x, y, z) {
+            const timeLabel = new Date(t).toLocaleTimeString('id-ID');
+            
+            // Add new data
+            chart.data.labels.push(timeLabel);
+            chart.data.datasets[0].data.push(x);
+            chart.data.datasets[1].data.push(y);
+            chart.data.datasets[2].data.push(z);
 
-    function showError(message) {
-      const container = document.getElementById('error-container');
-      container.innerHTML =
-        '<div class="error-message">' + message + '</div>';
-      setTimeout(() => {
-        container.innerHTML = '';
-      }, 5000);
-    }
+            // Maintain sliding window size
+            if (chart.data.labels.length > MAX_DATA_POINTS) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[1].data.shift();
+                chart.data.datasets[2].data.shift();
+            }
 
-    // ─── Startup ───────────────────────────────────
+            chart.update();
+            elLastUpdateTs.textContent = timeLabel;
+        }
 
-    window.addEventListener('load', init);
-  </script>
+        // Logic
+        function startPolling() {
+            const deviceId = elDeviceId.value.trim();
+            if (!deviceId) {
+                alert("Please enter a valid Device ID first.");
+                elDeviceId.focus();
+                return;
+            }
+
+            elBtnStart.disabled = true;
+            elBtnStop.disabled = false;
+            elDeviceId.disabled = true;
+
+            elStatusIndicator.className = 'status-indicator active';
+            elStatusText.textContent = `Polling active for ${deviceId}...`;
+
+            pollData(deviceId);
+            pollingTimer = setInterval(() => pollData(deviceId), POLLING_INTERVAL_MS);
+        }
+
+        function stopPolling() {
+            if (pollingTimer) {
+                clearInterval(pollingTimer);
+                pollingTimer = null;
+            }
+
+            elBtnStart.disabled = false;
+            elBtnStop.disabled = true;
+            elDeviceId.disabled = false;
+
+            elStatusIndicator.className = 'status-indicator';
+            elStatusText.textContent = 'Polling stopped.';
+        }
+
+        function pollData(deviceId) {
+            // Using Apps Script backend API google.script.run
+            google.script.run
+                .withSuccessHandler((response) => {
+                    if (response && response.t) {
+                        updateChartData(response.t, response.x, response.y, response.z);
+                    } else {
+                         // Fallback or silent ignore if no data yet
+                    }
+                })
+                .withFailureHandler((error) => {
+                    console.error("Polling error:", error);
+                    elStatusIndicator.className = 'status-indicator error';
+                    elStatusText.textContent = `Error: ${error.message || 'Network issue'}`;
+                })
+                .getAccelLatest(deviceId);
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            loadDevices();
+        });
+
+        // ── Load Devices List ──
+        function loadDevices() {
+            elDeviceId.innerHTML = '<option value="" disabled selected>Memuat device...</option>';
+            elStatusText.textContent = 'Memuat daftar device...';
+            
+            google.script.run
+                .withSuccessHandler((devices) => {
+                    elDeviceId.innerHTML = '<option value="" disabled selected>-- Pilih Device ID --</option>';
+                    if (devices && devices.length > 0) {
+                        devices.forEach(d => {
+                            const opt = document.createElement('option');
+                            opt.value = d;
+                            opt.textContent = d;
+                            elDeviceId.appendChild(opt);
+                        });
+                        elStatusText.textContent = `Daftar device (${devices.length}) berhasil dimuat.`;
+                    } else {
+                        elDeviceId.innerHTML = '<option value="" disabled selected>Belum ada data</option>';
+                        elStatusText.textContent = 'Tidak ada history device.';
+                    }
+                })
+                .withFailureHandler((error) => {
+                    elDeviceId.innerHTML = '<option value="" disabled selected>Gagal memuat</option>';
+                    elStatusText.textContent = `Error: ${error.message}`;
+                })
+                .getAccelDevices();
+        }
+
+        // ── Navigation ──
+        function goToQR() {
+            google.script.run
+                .withSuccessHandler(function(url) {
+                    window.top.location.href = url + '?path=ui';
+                })
+                .getDeployUrl();
+        }
+
+        function goToAccel() {
+            google.script.run
+                .withSuccessHandler(function(url) {
+                    window.top.location.href = url + '?path=accel-ui';
+                })
+                .getDeployUrl();
+        }
+    </script>
 </body>
 </html>

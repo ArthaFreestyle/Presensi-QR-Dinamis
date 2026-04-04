@@ -1,40 +1,48 @@
-// ─── Generic API Response Envelope ─────────────────────────────
-
-export type ApiEnvelope<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-// ─── Root API ───────────────────────────────────────────────
-
-export type RootInfoResponse = {
-  status: string;
-  version?: string;
+export type SuccessEnvelope<T> = {
+  ok: true;
+  data: T;
 };
 
-// ─── Accelerometer ──────────────────────────────────────────
-
-export type BatchAccelSample = {
-  x: number;
-  y: number;
-  z: number;
-  t: string;
+export type ErrorEnvelope = {
+  ok: false;
+  error: string;
 };
 
-export type BatchAccelRequest = {
-  device_id: string;
-  ts: string;
-  samples: BatchAccelSample[];
-};
-
-export type BatchAccelResponse = {
-  saved: number;
-};
-
-// ─── Presence / QR ──────────────────────────────────────────
+export type ApiEnvelope<T> = SuccessEnvelope<T> | ErrorEnvelope;
 
 export type GenerateQRRequest = {
   course_id: string;
   session_id: string;
+  ts?: string;
+};
+
+export type CheckinRequest = {
+  user_id: string;
+  device_id?: string;
+  course_id: string;
+  session_id: string;
+  qr_token: string;
+  ts?: string;
+};
+
+export type BatchAccelDataItem = {
+  x?: number;
+  y?: number;
+  z?: number;
+  t?: string;
+};
+
+export type BatchAccelRequest = {
+  device_id: string;
+  ts?: string;
+  samples: BatchAccelDataItem[];
+};
+
+export type LogGPSRequest = {
+  device_id: string;
+  lat: number;
+  lng: number;
+  accuracy_m?: number;
   ts?: string;
 };
 
@@ -43,60 +51,53 @@ export type GenerateQRResponse = {
   expires_at: string;
 };
 
-export type CheckinRequest = {
-  user_id: string;
-  device_id: string;
-  course_id: string;
-  session_id: string;
-  qr_token: string;
-  ts?: string;
-};
-
 export type CheckinResponse = {
   presence_id: string;
-  status: string;
+  status: "checked_in";
 };
 
-export type PresenceStatusResponse = {
-  presence_id?: string;
-  user_id: string;
-  course_id: string;
-  session_id: string;
-  status: string;
-  recorded_at?: string;
+export type BatchAccelResponse = {
+  accepted: number;
 };
 
-// ─── GPS ────────────────────────────────────────────────────
-
-export type LogGPSRequest = {
-  device_id: string;
-  lat: number;
-  lng: number;
-  ts?: string;
-  accuracy?: number;
-  altitude?: number;
+export type AccelLatestResponse = {
+  t: string | null;
+  x: number | null;
+  y: number | null;
+  z: number | null;
 };
 
 export type LogGPSResponse = {
-  recorded: boolean;
+  accepted: boolean;
 };
 
-export type GPSMarkerResponse = {
-  device_id: string;
+export type PresenceStatusResponse = {
+  user_id: string;
+  course_id: string;
+  session_id: string;
+  status: "checked_in" | "not_checked_in";
+  last_ts?: string;
+};
+
+export type GPSLatestResponse = {
+  ts: string | null;
+  lat: number | null;
+  lng: number | null;
+  accuracy_m: number | null;
+};
+
+export type GPSHistoryItem = {
+  ts: string;
   lat: number;
   lng: number;
-  ts: string;
-  accuracy?: number;
-  altitude?: number;
 };
 
-export type GPSPolylineResponse = {
+export type GPSHistoryResponse = {
   device_id: string;
-  coordinates: Array<{
-    lat: number;
-    lng: number;
-    ts: string;
-    accuracy?: number;
-    altitude?: number;
-  }>;
+  items: GPSHistoryItem[];
+};
+
+export type RootInfoResponse = {
+  status: string;
+  message: string;
 };
