@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 
 import { DockNavigation } from "@/components/layout/dock-navigation";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { SwabtestModeIndicator } from "@/components/layout/swabtest-mode-indicator";
 
 import "./globals.css";
 
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className="bg-background text-foreground antialiased">
+        <SwabtestModeIndicator />
         <div className="min-h-svh pb-[calc(6.25rem+env(safe-area-inset-bottom))]">{children}</div>
         <SiteFooter />
         <DockNavigation />

@@ -31,6 +31,9 @@ export default function Home() {
             <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
               Dashboard
             </Link>
+            <Link href="/swabtest" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
+              Swabtest
+            </Link>
           </div>
         </CardContent>
       </Card>

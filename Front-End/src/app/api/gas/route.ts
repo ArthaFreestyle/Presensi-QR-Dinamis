@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 
-function resolveTargetUrl(requestUrl: string): URL {
-  const gasApiUrl = process.env.GAS_API_URL;
+function resolveTargetUrl(request: NextRequest): URL {
+  const sourceUrl = new URL(request.url);
+  const overrideGasApiUrl = sourceUrl.searchParams.get("gas_api_url");
+  const gasApiUrl = overrideGasApiUrl || process.env.GAS_API_URL;
 
   if (!gasApiUrl) {
     throw new Error("GAS_API_URL is not set");
   }
 
-  const sourceUrl = new URL(requestUrl);
-  const targetUrl = new URL(gasApiUrl);
+  let targetUrl: URL;
+  try {
+    targetUrl = new URL(gasApiUrl);
+  } catch {
+    throw new Error("invalid_target_url");
+  }
+
+  if (!["http:", "https:"].includes(targetUrl.protocol)) {
+    throw new Error("invalid_target_protocol");
+  }
 
   sourceUrl.searchParams.forEach((value, key) => {
+    if (key === "gas_api_url") return;
     targetUrl.searchParams.set(key, value);
   });
 
@@ -22,7 +33,7 @@ async function forward(request: NextRequest) {
   let targetUrl: URL;
 
   try {
-    targetUrl = resolveTargetUrl(request.url);
+    targetUrl = resolveTargetUrl(request);
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "invalid_target_url" },
