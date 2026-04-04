@@ -19,8 +19,8 @@ type GPSPoint = {
 };
 
 const DEFAULT_CENTER: [number, number] = [-7.2575, 112.7521];
-const TRACK_INTERVAL_MS = 7000;
-const POLL_INTERVAL_MS = 7000;
+const TRACK_INTERVAL_MS = 2000; // Faster GPS capture for smoother live tracking
+const POLL_INTERVAL_MS = 2000; // Faster data refresh for responsive dashboard
 const HISTORY_LIMIT = 200;
 
 function toNumber(value: unknown) {
