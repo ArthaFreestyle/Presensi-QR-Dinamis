@@ -32,23 +32,23 @@ export default function AccelerometerPage() {
     <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
       {/* Header */}
       <section className="space-y-3">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Accelerometer Data Collector</h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Pengumpul Data Akselerometer</h1>
         <p className="text-sm text-slate-600 sm:text-base">
-          Collect real-time accelerometer data from your device and monitor sensor readings.
+          Kumpulkan data akselerometer real-time dari perangkat Anda dan pantau pembacaan sensor.
         </p>
       </section>
 
       {/* Device Info Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Device Information</CardTitle>
-          <CardDescription>Your unique device identifier</CardDescription>
+          <CardTitle>Informasi Perangkat</CardTitle>
+          <CardDescription>Pengenal perangkat unik Anda</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-700">Device ID</p>
             <code className="block rounded bg-slate-100 px-3 py-2 text-xs font-mono text-slate-900">
-              {deviceId || "Loading..."}
+              {deviceId || "Memuat..."}
             </code>
           </div>
         </CardContent>
@@ -57,15 +57,15 @@ export default function AccelerometerPage() {
       {/* Status Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Collection Status</CardTitle>
-          <CardDescription>Current data collection metrics</CardDescription>
+          <CardTitle>Status Pengumpulan</CardTitle>
+          <CardDescription>Metrik pengumpulan data akselerometer</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Support Check */}
           {!isSupported && (
             <div className="rounded-md border border-red-200 bg-red-50 p-4">
               <p className="text-sm text-red-800">
-                Device Motion API is not supported on this device. Please use a mobile device with accelerometer support.
+                Device Motion API tidak didukung di perangkat ini. Gunakan perangkat mobile dengan dukungan akselerometer.
               </p>
             </div>
           )}
@@ -73,21 +73,21 @@ export default function AccelerometerPage() {
           {/* Metrics Grid */}
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-700">Collection Status</p>
+              <p className="text-sm font-medium text-slate-700">Status Pengumpulan</p>
               <div className="flex items-center gap-2">
                 <Badge variant={metrics.isCollecting ? "default" : "secondary"}>
-                  {metrics.isCollecting ? "Recording" : "Stopped"}
+                  {metrics.isCollecting ? "Merekam" : "Berhenti"}
                 </Badge>
               </div>
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-700">Samples Collected</p>
+              <p className="text-sm font-medium text-slate-700">Sampel Dikumpulkan</p>
               <p className="text-2xl font-bold text-slate-900">{metrics.samplesCollected}</p>
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-700">Batches Sent</p>
+              <p className="text-sm font-medium text-slate-700">Batch Dikirim</p>
               <p className="text-2xl font-bold text-slate-900">{metrics.batchesSent}</p>
             </div>
           </div>
@@ -95,7 +95,7 @@ export default function AccelerometerPage() {
           {/* Error Display */}
           {metrics.lastError && (
             <div className="rounded-md border border-red-200 bg-red-50 p-4">
-              <p className="text-sm font-medium text-red-900">Error</p>
+              <p className="text-sm font-medium text-red-900">Kesalahan</p>
               <p className="text-sm text-red-700">{metrics.lastError}</p>
             </div>
           )}
@@ -107,10 +107,10 @@ export default function AccelerometerPage() {
               disabled={metrics.isCollecting || !isSupported || !deviceId}
               variant="default"
             >
-              Start Collection
+              Mulai Accelerometer
             </Button>
             <Button onClick={handleStop} disabled={!metrics.isCollecting} variant="secondary">
-              Stop Collection
+              Berhenti
             </Button>
           </div>
         </CardContent>
@@ -119,8 +119,8 @@ export default function AccelerometerPage() {
       {/* Chart Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Accelerometer Reading</CardTitle>
-          <CardDescription>Real-time acceleration data from X, Y, Z axes</CardDescription>
+          <CardTitle>Pembacaan Accelerometer</CardTitle>
+          <CardDescription>Data akselerasi real-time dari sumbu X, Y, Z</CardDescription>
         </CardHeader>
         <CardContent>
           {chartData.length > 0 ? (
@@ -141,7 +141,7 @@ export default function AccelerometerPage() {
                       });
                     }}
                   />
-                  <YAxis label={{ value: "Acceleration (m/s²)", angle: -90, position: "insideLeft" }} />
+                  <YAxis label={{ value: "Akselerasi (m/s²)", angle: -90, position: "insideLeft" }} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb" }}
                     formatter={(value) => (typeof value === "number" ? value.toFixed(2) : value)}
@@ -156,17 +156,17 @@ export default function AccelerometerPage() {
                     }}
                   />
                   <Legend />
-                  <Line type="monotone" dataKey="x" stroke="#ef4444" dot={false} name="X-axis" strokeWidth={2} />
-                  <Line type="monotone" dataKey="y" stroke="#22c55e" dot={false} name="Y-axis" strokeWidth={2} />
-                  <Line type="monotone" dataKey="z" stroke="#3b82f6" dot={false} name="Z-axis" strokeWidth={2} />
+                  <Line type="monotone" dataKey="x" stroke="#ef4444" dot={false} name="Sumbu X" strokeWidth={2} />
+                  <Line type="monotone" dataKey="y" stroke="#22c55e" dot={false} name="Sumbu Y" strokeWidth={2} />
+                  <Line type="monotone" dataKey="z" stroke="#3b82f6" dot={false} name="Sumbu Z" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           ) : (
             <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50">
               <div className="text-center">
-                <p className="text-sm font-medium text-slate-600">No data collected yet</p>
-                <p className="mt-1 text-xs text-slate-500">Start collection to see accelerometer readings</p>
+                <p className="text-sm font-medium text-slate-600">Belum ada data yang dikumpulkan</p>
+                <p className="mt-1 text-xs text-slate-500">Mulai pengumpulan untuk melihat pembacaan akselerometer</p>
               </div>
             </div>
           )}
@@ -176,24 +176,24 @@ export default function AccelerometerPage() {
       {/* Info Card */}
       <Card>
         <CardHeader>
-          <CardTitle>How It Works</CardTitle>
-          <CardDescription>Technical details about data collection</CardDescription>
+          <CardTitle>Cara Kerjanya</CardTitle>
+          <CardDescription>Detail teknis tentang pengumpulan data</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h4 className="font-medium text-slate-900">Collection Process</h4>
+            <h4 className="font-medium text-slate-900">Proses Pengumpulan</h4>
             <ul className="mt-2 space-y-1 text-sm text-slate-600">
-              <li>• Reads accelerometer data every ~100ms via Device Motion API</li>
-              <li>• Buffers samples locally on your device</li>
-              <li>• Automatically sends batches to backend every 5 seconds</li>
-              <li>• Updates the chart with real-time data</li>
+              <li>• Membaca data akselerometer setiap ~100ms melalui Device Motion API</li>
+              <li>• Menyimpan sampel secara lokal di perangkat Anda</li>
+              <li>• Secara otomatis mengirim batch ke backend setiap 5 detik</li>
+              <li>• Memperbarui grafik dengan data real-time</li>
             </ul>
           </div>
           <div>
-            <h4 className="font-medium text-slate-900">Data Privacy</h4>
+            <h4 className="font-medium text-slate-900">Privasi Data</h4>
             <p className="mt-1 text-sm text-slate-600">
-              All accelerometer data is collected locally on your device and only sent to the server in batches. Your device ID is
-              used for identification.
+              Semua data akselerometer dikumpulkan secara lokal di perangkat Anda dan hanya dikirim ke server dalam batch. ID perangkat Anda
+              digunakan untuk identifikasi.
             </p>
           </div>
         </CardContent>
