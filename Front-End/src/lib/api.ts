@@ -15,6 +15,11 @@ import type {
 } from "@/types/api";
 
 const basePath = "/api/gas";
+let gasApiOverrideUrl: string | null = null;
+
+export function setGasApiOverrideUrl(url: string | null) {
+  gasApiOverrideUrl = url;
+}
 
 function buildApiUrl(path: string, params?: Record<string, string | undefined>) {
   const searchParams = new URLSearchParams();
@@ -29,6 +34,10 @@ function buildApiUrl(path: string, params?: Record<string, string | undefined>) 
         searchParams.set(key, value);
       }
     });
+  }
+
+  if (gasApiOverrideUrl) {
+    searchParams.set("gas_api_url", gasApiOverrideUrl);
   }
 
   return `${basePath}?${searchParams.toString()}`;

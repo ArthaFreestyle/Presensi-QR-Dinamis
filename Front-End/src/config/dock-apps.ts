@@ -1,4 +1,4 @@
-import { CircleCheckBig, House, LayoutDashboard, MapPin, QrCode } from "lucide-react";
+import { CircleCheckBig, FlaskConical, House, LayoutDashboard, MapPin, QrCode } from "lucide-react";
 
 import type { DockApp } from "@/types/dock";
 
@@ -8,4 +8,5 @@ export const dockApps: DockApp[] = [
   { id: "presence", name: "Presensi", href: "/presence", icon: QrCode },
   { id: "status", name: "Status", href: "/presence/status", icon: CircleCheckBig },
   { id: "tracking", name: "Tracking", href: "/tracking", icon: MapPin },
+  { id: "swabtest", name: "Swabtest", href: "/swabtest", icon: FlaskConical },
 ];
