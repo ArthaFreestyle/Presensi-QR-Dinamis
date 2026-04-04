@@ -42,6 +42,7 @@ export type LogGPSRequest = {
   device_id: string;
   lat: number;
   lng: number;
+  accuracy_m?: number;
   accuracy?: number;
   altitude?: number;
   ts?: string;
@@ -62,7 +63,8 @@ export type BatchAccelResponse = {
 };
 
 export type LogGPSResponse = {
-  recorded: boolean;
+  accepted?: boolean;
+  recorded?: boolean;
 };
 
 export type PresenceStatusResponse = {
@@ -74,10 +76,9 @@ export type PresenceStatusResponse = {
 };
 
 export type GPSMarkerResponse = {
-  device_id: string;
   lat: number;
   lng: number;
-  accuracy?: number;
+  accuracy_m?: number;
   altitude?: number;
   ts: string;
 };
@@ -85,17 +86,14 @@ export type GPSMarkerResponse = {
 export type GPSPolylinePoint = {
   lat: number;
   lng: number;
-  accuracy?: number;
+  accuracy_m?: number;
   altitude?: number;
   ts: string;
 };
 
 export type GPSPolylineResponse = {
   device_id: string;
-  from: string;
-  to: string;
-  count: number;
-  points: GPSPolylinePoint[];
+  items: GPSPolylinePoint[];
 };
 
 export type RootInfoResponse = {
