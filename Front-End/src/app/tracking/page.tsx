@@ -1,5 +1,7 @@
 "use client";
 
+import "leaflet/dist/leaflet.css";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
@@ -64,6 +66,15 @@ export default function TrackingPage() {
       const leaflet = await import("leaflet");
       if (!mounted || !mapContainerRef.current || mapRef.current) return;
 
+      // Fix broken default marker icons caused by webpack asset hashing
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (leaflet.Icon.Default.prototype as any)._getIconUrl;
+      leaflet.Icon.Default.mergeOptions({
+        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      });
+
       leafletRef.current = leaflet;
       const map = leaflet.map(mapContainerRef.current, {
         zoomControl: true,
@@ -76,6 +87,9 @@ export default function TrackingPage() {
         .addTo(map);
       map.setView(DEFAULT_CENTER, 13);
       mapRef.current = map;
+
+      // Force tile recalculation after mount — fixes blank/gray map on first load
+      window.setTimeout(() => { map.invalidateSize(); }, 100);
     }
 
     initMap();
