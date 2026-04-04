@@ -53,6 +53,11 @@ function doGet(e) {
             case 'telemetry/gps/history':
                 return sendSuccess(getGpsHistory(params.device_id, params.limit));
 
+            case 'accel-ui':
+                return HtmlService.createHtmlOutputFromFile('AccelDashboard')
+                    .setTitle('Accelerometer Monitor')
+                    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+
             case 'ui':
                 return HtmlService.createHtmlOutputFromFile('Index')
                     .setTitle('Dashboard Presensi QR')

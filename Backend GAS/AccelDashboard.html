@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accelerometer Monitor</title>
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 24px;
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-start {
+            background-color: #10b981;
+            color: white;
+        }
+        .btn-start:hover:not(:disabled) {
+            background-color: #059669;
+        }
+        .btn-stop {
+            background-color: #ef4444;
+            color: white;
+        }
+        .btn-stop:hover:not(:disabled) {
+            background-color: #dc2626;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .status-panel {
+            background-color: #f1f5f9;
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #94a3b8;
+            margin-right: 6px;
+        }
+        .status-indicator.active {
+            background-color: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+            animation: pulse 1.5s infinite;
+        }
+        .status-indicator.error {
+            background-color: #ef4444;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Accelerometer Monitor</h1>
+        
+        <div class="header-controls">
+            <div class="input-group">
+                <label for="deviceId">Device ID:</label>
+                <input type="text" id="deviceId" placeholder="e.g. fp-abc12345" value="">
+            </div>
+            <div class="btn-group">
+                <button id="btnStart" class="btn-start" onclick="startPolling()">▶ Start Polling</button>
+                <button id="btnStop" class="btn-stop" onclick="stopPolling()" disabled>⏸ Stop</button>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="accelChart"></canvas>
+        </div>
+
+        <div class="status-panel">
+            <div>
+                <span id="statusIndicator" class="status-indicator"></span>
+                <span id="statusText">System idle. Enter Device ID and start polling.</span>
+            </div>
+            <div>
+                Last update: <span id="lastUpdateTs">-</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants & State
+        const MAX_DATA_POINTS = 50;
+        const POLLING_INTERVAL_MS = 2000;
+        let pollingTimer = null;
+        let chart = null;
+
+        // Elements
+        const elDeviceId = document.getElementById('deviceId');
+        const elBtnStart = document.getElementById('btnStart');
+        const elBtnStop = document.getElementById('btnStop');
+        const elStatusIndicator = document.getElementById('statusIndicator');
+        const elStatusText = document.getElementById('statusText');
+        const elLastUpdateTs = document.getElementById('lastUpdateTs');
+
+        // Initialize Chart.js
+        function initChart() {
+            const ctx = document.getElementById('accelChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'X Axis',
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            data: [],
+                            tension: 0.4,
+                            pointRadius: 2
+                        },
+                        {
+                            label: 'Y Axis',
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            data: [],
+                            tension: 0.4,
+                            pointRadius: 2
+                        },
+                        {
+                            label: 'Z Axis',
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            data: [],
+                            tension: 0.4,
+                            pointRadius: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            suggestedMin: -15,
+                            suggestedMax: 15
+                        },
+                        x: {
+                            ticks: {
+                                display: false // Hide X-axis labels to avoid clutter
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 0 // Disable animation for performance
+                    }
+                }
+            });
+        }
+
+        function updateChartData(t, x, y, z) {
+            const timeLabel = new Date(t).toLocaleTimeString('id-ID');
+            
+            // Add new data
+            chart.data.labels.push(timeLabel);
+            chart.data.datasets[0].data.push(x);
+            chart.data.datasets[1].data.push(y);
+            chart.data.datasets[2].data.push(z);
+
+            // Maintain sliding window size
+            if (chart.data.labels.length > MAX_DATA_POINTS) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[1].data.shift();
+                chart.data.datasets[2].data.shift();
+            }
+
+            chart.update();
+            elLastUpdateTs.textContent = timeLabel;
+        }
+
+        // Logic
+        function startPolling() {
+            const deviceId = elDeviceId.value.trim();
+            if (!deviceId) {
+                alert("Please enter a valid Device ID first.");
+                elDeviceId.focus();
+                return;
+            }
+
+            elBtnStart.disabled = true;
+            elBtnStop.disabled = false;
+            elDeviceId.disabled = true;
+
+            elStatusIndicator.className = 'status-indicator active';
+            elStatusText.textContent = `Polling active for ${deviceId}...`;
+
+            pollData(deviceId);
+            pollingTimer = setInterval(() => pollData(deviceId), POLLING_INTERVAL_MS);
+        }
+
+        function stopPolling() {
+            if (pollingTimer) {
+                clearInterval(pollingTimer);
+                pollingTimer = null;
+            }
+
+            elBtnStart.disabled = false;
+            elBtnStop.disabled = true;
+            elDeviceId.disabled = false;
+
+            elStatusIndicator.className = 'status-indicator';
+            elStatusText.textContent = 'Polling stopped.';
+        }
+
+        function pollData(deviceId) {
+            // Using Apps Script backend API google.script.run
+            google.script.run
+                .withSuccessHandler((response) => {
+                    if (response && response.t) {
+                        updateChartData(response.t, response.x, response.y, response.z);
+                    } else {
+                         // Fallback or silent ignore if no data yet
+                    }
+                })
+                .withFailureHandler((error) => {
+                    console.error("Polling error:", error);
+                    elStatusIndicator.className = 'status-indicator error';
+                    elStatusText.textContent = `Error: ${error.message || 'Network issue'}`;
+                })
+                .getAccelLatest(deviceId);
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+        });
+    </script>
+</body>
+</html>

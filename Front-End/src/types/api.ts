@@ -43,11 +43,6 @@ export type LogGPSRequest = {
   lat: number;
   lng: number;
   accuracy_m?: number;
-<<<<<<< HEAD
-  accuracy?: number;
-  altitude?: number;
-=======
->>>>>>> 3a73763 (some chnages)
   ts?: string;
 };
 
@@ -73,12 +68,7 @@ export type AccelLatestResponse = {
 };
 
 export type LogGPSResponse = {
-<<<<<<< HEAD
-  accepted?: boolean;
-  recorded?: boolean;
-=======
   accepted: boolean;
->>>>>>> 3a73763 (some chnages)
 };
 
 export type PresenceStatusResponse = {
@@ -89,41 +79,22 @@ export type PresenceStatusResponse = {
   last_ts?: string;
 };
 
-<<<<<<< HEAD
-export type GPSMarkerResponse = {
-  lat: number;
-  lng: number;
-  accuracy_m?: number;
-  altitude?: number;
-  ts: string;
-=======
 export type GPSLatestResponse = {
   ts: string | null;
   lat: number | null;
   lng: number | null;
   accuracy_m: number | null;
->>>>>>> 3a73763 (some chnages)
 };
 
 export type GPSHistoryItem = {
   ts: string;
   lat: number;
   lng: number;
-<<<<<<< HEAD
-  accuracy_m?: number;
-  altitude?: number;
-  ts: string;
-=======
->>>>>>> 3a73763 (some chnages)
 };
 
 export type GPSHistoryResponse = {
   device_id: string;
-<<<<<<< HEAD
-  items: GPSPolylinePoint[];
-=======
   items: GPSHistoryItem[];
->>>>>>> 3a73763 (some chnages)
 };
 
 export type RootInfoResponse = {

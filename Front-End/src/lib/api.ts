@@ -82,21 +82,13 @@ export const api = {
     const response = await fetch(url, { cache: "no-store" });
     return parseEnvelope<PresenceStatusResponse>(response);
   },
-<<<<<<< HEAD
-  getGPSMarker: async (device_id: string) => {
-=======
   getGPSLatest: async (device_id: string) => {
->>>>>>> 3a73763 (some chnages)
     const url = buildApiUrl("telemetry/gps/latest", { device_id });
 
     const response = await fetch(url, { cache: "no-store" });
     return parseEnvelope<GPSLatestResponse>(response);
   },
-<<<<<<< HEAD
-  getGPSPolyline: async (params: { device_id: string; from?: string; to?: string }) => {
-=======
   getGPSHistory: async (params: { device_id: string; limit?: string }) => {
->>>>>>> 3a73763 (some chnages)
     const url = buildApiUrl("telemetry/gps/history", params);
 
     const response = await fetch(url, { cache: "no-store" });

@@ -331,15 +331,9 @@ export default function TrackingPage() {
           <CardDescription>Center default Surabaya (-7.2575, 112.7521). Marker auto-refresh setiap polling.</CardDescription>
         </CardHeader>
         <CardContent>
-<<<<<<< HEAD
-          <div ref={mapContainerRef} className="min-h-[60vh] w-full rounded-lg border border-slate-300 md:min-h-[28rem]" />
+          <div ref={mapContainerRef} className="min-h-[60vh] w-full rounded-lg border border-slate-300 bg-slate-50 md:min-h-[28rem]" />
           <p className="mt-3 text-sm text-slate-600">
-            Titik history: {history.length} {latest?.ts ? `• Update terakhir: ${latest.ts}` : ""}
-=======
-          <div className="min-h-[60vh] w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 md:min-h-[28rem]" />
-          <p className="mt-4 text-sm text-slate-600">
-            Endpoint: <code>telemetry/gps/latest</code> dan <code>telemetry/gps/history</code>
->>>>>>> 3a73763 (some chnages)
+            Titik history: {history.length} {latest?.ts ? `• Update terakhir: ${latest.ts}` : ""} • Endpoint: <code>telemetry/gps/latest</code> dan <code>telemetry/gps/history</code>
           </p>
         </CardContent>
       </Card>
