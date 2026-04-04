@@ -33,6 +33,8 @@ const QR_TOKEN_TTL_MS = 120 * 1000;
  *   ?path=presence/status
  *   ?path=sensor/gps/marker
  *   ?path=sensor/gps/polyline
+ *   ?path=telemetry/gps/latest
+ *   ?path=telemetry/gps/history
  *   ?path=ui  (default — serves Dashboard HTML)
  */
 function doGet(e) {
@@ -49,6 +51,12 @@ function doGet(e) {
 
             case 'sensor/gps/polyline':
                 return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to, params.limit));
+
+            case 'telemetry/gps/latest':
+                return sendSuccess(getGpsLatest(params.device_id));
+
+            case 'telemetry/gps/history':
+                return sendSuccess(getGpsHistory(params.device_id, params.limit));
 
             case 'ui':
                 return HtmlService.createHtmlOutputFromFile('Index')
@@ -88,6 +96,7 @@ function doGet(e) {
  *   ?path=presence/checkin
  *   ?path=sensor/accel/batch
  *   ?path=sensor/gps
+ *   ?path=telemetry/gps
  */
 function doPost(e) {
     try {
@@ -106,6 +115,10 @@ function doPost(e) {
 
             case 'sensor/gps':
                 return sendSuccess(logGPS(body));
+
+            case 'telemetry/gps':
+                logGPS(body);
+                return sendSuccess({ accepted: true });
 
             default:
                 return sendError('Unknown endpoint: POST ?' + path);
@@ -410,7 +423,7 @@ function logGPS(body) {
         body.device_id,
         body.lat,
         body.lng,
-        body.accuracy || '',
+        body.accuracy_m || body.accuracy || '',
         body.altitude || '',
         body.ts || nowISO(),
         nowISO(),              // recorded_at
@@ -511,6 +524,64 @@ function getGpsPolyline(deviceId, from, to, limit) {
         from: startTime.toISOString(),
         to: endTime.toISOString(),
         count: items.length,
+        items: items,
+    };
+}
+
+/**
+ * GET ?path=telemetry/gps/latest&device_id=...
+ *
+ * Returns the latest GPS coordinate for a device.
+ *
+ * @param {string} deviceId
+ * @returns {Object}
+ */
+function getGpsLatest(deviceId) {
+    const marker = getGpsMarker(deviceId);
+    return {
+        ts: marker.ts,
+        lat: marker.lat,
+        lng: marker.lng,
+        accuracy_m: marker.accuracy_m,
+        altitude: marker.altitude,
+    };
+}
+
+/**
+ * GET ?path=telemetry/gps/history&device_id=...&limit=200
+ *
+ * Returns history points for a device with limit support.
+ *
+ * @param {string} deviceId
+ * @param {string} limit
+ * @returns {Object}
+ */
+function getGpsHistory(deviceId, limit) {
+    if (!deviceId) {
+        throw new Error('Missing required parameter: device_id');
+    }
+
+    const sheet = getOrCreateSheet(SHEET.GPS);
+    const data = sheet.getDataRange().getValues();
+    const points = [];
+
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][0] !== deviceId) continue;
+        points.push({
+            ts: data[i][5],
+            lat: data[i][1],
+            lng: data[i][2],
+            accuracy_m: data[i][3],
+            altitude: data[i][4],
+        });
+    }
+
+    const nLimitRaw = limit ? parseInt(limit, 10) : 200;
+    const nLimit = (!nLimitRaw || nLimitRaw < 1) ? 200 : nLimitRaw;
+    const items = points.length > nLimit ? points.slice(points.length - nLimit) : points;
+
+    return {
+        device_id: deviceId,
         items: items,
     };
 }

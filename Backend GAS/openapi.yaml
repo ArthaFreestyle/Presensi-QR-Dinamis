@@ -35,11 +35,13 @@ paths:
           required: false
           schema:
             type: string
-            enum:
-              - presence/status
-              - sensor/gps/marker
-              - sensor/gps/polyline
-              - ui
+              enum:
+                - presence/status
+                - sensor/gps/marker
+                - sensor/gps/polyline
+                - telemetry/gps/latest
+                - telemetry/gps/history
+                - ui
           description: Virtual path for routing
         - name: user_id
           in: query
@@ -60,7 +62,7 @@ paths:
           in: query
           schema:
             type: string
-          description: Required when path=sensor/gps/marker or sensor/gps/polyline
+          description: Required when path=sensor/gps/marker, sensor/gps/polyline, telemetry/gps/latest, or telemetry/gps/history
         - name: from
           in: query
           schema:
@@ -72,7 +74,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-          description: Maximum number of history points to return (path=sensor/gps/polyline)
+          description: Maximum number of history points to return (path=sensor/gps/polyline or telemetry/gps/history)
         - name: to
           in: query
           schema:
@@ -133,6 +135,28 @@ paths:
                     data:
                       status: "ok"
                       message: "GAS Backend API v1 is running."
+                telemetryGpsLatest:
+                  summary: "path=telemetry/gps/latest — Latest GPS for marker"
+                  value:
+                    ok: true
+                    data:
+                      ts: "2026-02-18T10:00:00Z"
+                      lat: -7.983908
+                      lng: 112.621391
+                      accuracy_m: 5.0
+                telemetryGpsHistory:
+                  summary: "path=telemetry/gps/history — GPS history for polyline"
+                  value:
+                    ok: true
+                    data:
+                      device_id: "dev-001"
+                      items:
+                        - ts: "2026-02-18T07:00:00Z"
+                          lat: -7.983908
+                          lng: 112.621391
+                        - ts: "2026-02-18T08:00:00Z"
+                          lat: -7.984000
+                          lng: 112.622000
             text/html:
               schema:
                 type: string
@@ -149,11 +173,12 @@ paths:
           required: true
           schema:
             type: string
-            enum:
-              - presence/qr/generate
-              - presence/checkin
-              - sensor/accel/batch
-              - sensor/gps
+              enum:
+                - presence/qr/generate
+                - presence/checkin
+                - sensor/accel/batch
+                - sensor/gps
+                - telemetry/gps
           description: Virtual path for routing
       requestBody:
         required: true
@@ -212,6 +237,12 @@ paths:
                     ok: true
                     data:
                       recorded: true
+                telemetryLogGPS:
+                  summary: "path=telemetry/gps"
+                  value:
+                    ok: true
+                    data:
+                      accepted: true
 
 # ──────────────────────────────────────────────────────
 components:

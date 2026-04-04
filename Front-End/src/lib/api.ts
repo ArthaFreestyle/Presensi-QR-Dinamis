@@ -82,13 +82,13 @@ export const api = {
     return parseEnvelope<PresenceStatusResponse>(response);
   },
   getGPSMarker: async (device_id: string) => {
-    const url = buildApiUrl("sensor/gps/marker", { device_id });
+    const url = buildApiUrl("telemetry/gps/latest", { device_id });
 
     const response = await fetch(url, { cache: "no-store" });
     return parseEnvelope<GPSMarkerResponse>(response);
   },
   getGPSPolyline: async (params: { device_id: string; from?: string; to?: string }) => {
-    const url = buildApiUrl("sensor/gps/polyline", params);
+    const url = buildApiUrl("telemetry/gps/history", params);
 
     const response = await fetch(url, { cache: "no-store" });
     return parseEnvelope<GPSPolylineResponse>(response);
@@ -109,7 +109,7 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   logGPS: (payload: LogGPSRequest) =>
-    request<LogGPSResponse>("sensor/gps", {
+    request<LogGPSResponse>("telemetry/gps", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
