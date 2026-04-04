@@ -48,7 +48,7 @@ function doGet(e) {
                 return sendSuccess(getGpsMarker(params.device_id));
 
             case 'sensor/gps/polyline':
-                return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to));
+                return sendSuccess(getGpsPolyline(params.device_id, params.from, params.to, params.limit));
 
             case 'ui':
                 return HtmlService.createHtmlOutputFromFile('Index')
@@ -446,7 +446,7 @@ function getGpsMarker(deviceId) {
                 device_id: deviceId,
                 lat: data[i][1],
                 lng: data[i][2],
-                accuracy: data[i][3],
+                accuracy_m: data[i][3],
                 altitude: data[i][4],
                 ts: data[i][5],
             };
@@ -471,7 +471,7 @@ function getGpsMarker(deviceId) {
  * @param {string} to   - ISO-8601 datetime
  * @returns {Object}
  */
-function getGpsPolyline(deviceId, from, to) {
+function getGpsPolyline(deviceId, from, to, limit) {
     if (!deviceId) {
         throw new Error('Missing required parameter: device_id');
     }
@@ -495,19 +495,23 @@ function getGpsPolyline(deviceId, from, to) {
             points.push({
                 lat: data[i][1],
                 lng: data[i][2],
-                accuracy: data[i][3],
+                accuracy_m: data[i][3],
                 altitude: data[i][4],
                 ts: data[i][5],
             });
         }
     }
 
+    // Apply limit (return last N points) if provided
+    const nLimit = limit ? parseInt(limit, 10) : null;
+    const items = (nLimit && points.length > nLimit) ? points.slice(points.length - nLimit) : points;
+
     return {
         device_id: deviceId,
         from: startTime.toISOString(),
         to: endTime.toISOString(),
-        count: points.length,
-        points: points,
+        count: items.length,
+        items: items,
     };
 }
 

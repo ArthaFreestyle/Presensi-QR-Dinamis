@@ -67,6 +67,12 @@ paths:
             type: string
             format: date-time
           description: ISO-8601 start time (path=sensor/gps/polyline, default last 24h)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: Maximum number of history points to return (path=sensor/gps/polyline)
         - name: to
           in: query
           schema:
@@ -97,7 +103,7 @@ paths:
                       device_id: "dev-001"
                       lat: -7.983908
                       lng: 112.621391
-                      accuracy: 5.0
+                      accuracy_m: 5.0
                       altitude: 450.0
                       ts: "2026-02-18T10:00:00Z"
                 gpsPolyline:
@@ -109,15 +115,15 @@ paths:
                       from: "2026-02-17T10:00:00.000Z"
                       to: "2026-02-18T10:00:00.000Z"
                       count: 2
-                      points:
+                      items:
                         - lat: -7.983908
                           lng: 112.621391
-                          accuracy: 5
+                          accuracy_m: 5
                           altitude: 450
                           ts: "2026-02-18T07:00:00Z"
                         - lat: -7.984000
                           lng: 112.622000
-                          accuracy: 4
+                          accuracy_m: 4
                           altitude: 451
                           ts: "2026-02-18T08:00:00Z"
                 apiInfo:
@@ -315,7 +321,7 @@ components:
           type: number
           format: double
           example: 112.621391
-        accuracy:
+        accuracy_m:
           type: number
           example: 5.0
         altitude:
