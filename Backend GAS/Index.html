@@ -359,8 +359,8 @@
 <body class="has-nav">
 
   <nav class="nav-bar">
-    <a href="?path=ui" class="active">📋 QR Generate</a>
-    <a id="nav-accel" href="#" onclick="goToAccel()">📊 Accel Monitor</a>
+    <a href="javascript:void(0);" onclick="goToQR(); return false;" class="active">📋 QR Generate</a>
+    <a href="javascript:void(0);" onclick="goToAccel(); return false;">📊 Accel Monitor</a>
   </nav>
 
   <div class="card">
@@ -431,12 +431,18 @@
 
   <script>
     // ── Navigate to Accel Monitor ──
-    // window.location inside GAS iframe = googleusercontent.com, not the real URL.
-    // We ask the server for the real deployment URL instead.
     function goToAccel() {
       google.script.run
         .withSuccessHandler(function(url) {
           window.top.location.href = url + '?path=accel-ui';
+        })
+        .getDeployUrl();
+    }
+    
+    function goToQR() {
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.top.location.href = url + '?path=ui';
         })
         .getDeployUrl();
     }
