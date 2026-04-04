@@ -6,8 +6,9 @@ import type {
   CheckinResponse,
   GenerateQRRequest,
   GenerateQRResponse,
-  GPSMarkerResponse,
-  GPSPolylineResponse,
+  GPSLatestResponse,
+  GPSHistoryResponse,
+  AccelLatestResponse,
   LogGPSRequest,
   LogGPSResponse,
   PresenceStatusResponse,
@@ -81,17 +82,31 @@ export const api = {
     const response = await fetch(url, { cache: "no-store" });
     return parseEnvelope<PresenceStatusResponse>(response);
   },
+<<<<<<< HEAD
   getGPSMarker: async (device_id: string) => {
+=======
+  getGPSLatest: async (device_id: string) => {
+>>>>>>> 3a73763 (some chnages)
     const url = buildApiUrl("telemetry/gps/latest", { device_id });
 
     const response = await fetch(url, { cache: "no-store" });
-    return parseEnvelope<GPSMarkerResponse>(response);
+    return parseEnvelope<GPSLatestResponse>(response);
   },
+<<<<<<< HEAD
   getGPSPolyline: async (params: { device_id: string; from?: string; to?: string }) => {
+=======
+  getGPSHistory: async (params: { device_id: string; limit?: string }) => {
+>>>>>>> 3a73763 (some chnages)
     const url = buildApiUrl("telemetry/gps/history", params);
 
     const response = await fetch(url, { cache: "no-store" });
-    return parseEnvelope<GPSPolylineResponse>(response);
+    return parseEnvelope<GPSHistoryResponse>(response);
+  },
+  getAccelLatest: async (device_id: string) => {
+    const url = buildApiUrl("telemetry/accel/latest", { device_id });
+
+    const response = await fetch(url, { cache: "no-store" });
+    return parseEnvelope<AccelLatestResponse>(response);
   },
   generateQR: (payload: GenerateQRRequest) =>
     request<GenerateQRResponse>("presence/qr/generate", {
@@ -104,7 +119,7 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   logBatchAccel: (payload: BatchAccelRequest) =>
-    request<BatchAccelResponse>("sensor/accel/batch", {
+    request<BatchAccelResponse>("telemetry/accel", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
