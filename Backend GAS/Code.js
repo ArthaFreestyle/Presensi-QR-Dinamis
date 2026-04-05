@@ -45,6 +45,8 @@ function doGet(e) {
         switch (path) {
             case 'presence/status':
                 return sendSuccess(getPresenceStatus(params.user_id, params.course_id, params.session_id));
+            case 'presence/history':
+                return sendSuccess(getPresenceHistory(params.course_id, params.session_id, params.limit));
 
             case 'telemetry/accel/latest':
                 return sendSuccess(getAccelLatest(params.device_id));
@@ -88,6 +90,7 @@ function doGet(e) {
                     endpoints: {
                         GET: [
                             '?path=presence/status',
+                            '?path=presence/history',
                             '?path=telemetry/accel/latest',
                             '?path=telemetry/gps/latest',
                             '?path=telemetry/gps/history',
@@ -394,6 +397,60 @@ function getPresenceStatus(userId, courseId, sessionId) {
     };
 }
 
+/**
+ * GET ?path=presence/history&course_id=...&session_id=...&limit=...
+ *
+ * Returns attendance list for a specific course session.
+ *
+ * @param {string} courseId
+ * @param {string} sessionId
+ * @param {string|number} limit - max number of rows (default 300)
+ * @returns {Object}
+ */
+function getPresenceHistory(courseId, sessionId, limit) {
+    if (!courseId || !sessionId) {
+        throw new Error('Missing required parameters: course_id, session_id');
+    }
+
+    const parsedLimit = Number(limit);
+    const maxItems = Number.isFinite(parsedLimit) && parsedLimit > 0
+        ? Math.min(Math.floor(parsedLimit), 1000)
+        : 300;
+    const courseKey = String(courseId);
+    const sessionKey = String(sessionId);
+
+    const sheet = getOrCreateSheet(SHEET.PRESENCE);
+    const data = sheet.getDataRange().getValues();
+    const items = [];
+
+    // Column indices: 0=presence_id, 1=user_id, 2=device_id, 3=course_id, 4=session_id, 5=qr_token, 6=ts, 7=recorded_at
+    // Walk backwards then reverse for chronological order (oldest -> newest).
+    for (let i = data.length - 1; i >= 1 && items.length < maxItems; i--) {
+        if (String(data[i][3]) === courseKey &&
+            String(data[i][4]) === sessionKey) {
+            items.push({
+                presence_id: data[i][0],
+                user_id: data[i][1],
+                device_id: data[i][2],
+                course_id: data[i][3],
+                session_id: data[i][4],
+                qr_token: data[i][5],
+                ts: data[i][6],
+                recorded_at: data[i][7],
+            });
+        }
+    }
+
+    items.reverse();
+
+    return {
+        course_id: courseId,
+        session_id: sessionId,
+        total: items.length,
+        items: items,
+    };
+}
+
 
 // ─── MODULE 2: ACCELEROMETER BATCH ─────────────────────────
 
@@ -688,6 +745,24 @@ function processGenerateQR(payload) {
                 qr_token: qrToken,
                 expires_at: expiresAt.toISOString(),
             },
+        };
+    } catch (error) {
+        return { ok: false, error: error.message };
+    }
+}
+
+/**
+ * Called by Index.html via google.script.run to fetch attendance list.
+ *
+ * @param {Object} payload - { course_id, session_id, limit? }
+ * @returns {Object} { ok, data/error }
+ */
+function processGetPresenceHistory(payload) {
+    try {
+        const safePayload = payload || {};
+        return {
+            ok: true,
+            data: getPresenceHistory(safePayload.course_id, safePayload.session_id, safePayload.limit),
         };
     } catch (error) {
         return { ok: false, error: error.message };

@@ -37,6 +37,7 @@ paths:
             type: string
             enum:
               - presence/status
+              - presence/history
               - telemetry/gps/latest
               - telemetry/gps/history
               - telemetry/accel/latest
@@ -51,12 +52,18 @@ paths:
           in: query
           schema:
             type: string
-          description: Required when path=presence/status
+          description: Required when path=presence/status or presence/history
         - name: session_id
           in: query
           schema:
             type: string
-          description: Required when path=presence/status
+          description: Required when path=presence/status or presence/history
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 300
+          description: Maximum rows to return (path=presence/history)
         - name: device_id
           in: query
           schema:
@@ -84,6 +91,31 @@ paths:
                       session_id: "sesi-02"
                       status: "checked_in"
                       last_ts: "2026-02-18T10:01:10.000Z"
+                presenceHistory:
+                  summary: "path=presence/history — Attendance list by session"
+                  value:
+                    ok: true
+                    data:
+                      course_id: "cloud-101"
+                      session_id: "sesi-02"
+                      total: 2
+                      items:
+                        - presence_id: "PR-A1B2"
+                          user_id: "20231234"
+                          device_id: "fp-abc123"
+                          course_id: "cloud-101"
+                          session_id: "sesi-02"
+                          qr_token: "TKN-8F2A19"
+                          ts: "2026-02-18T10:01:10.000Z"
+                          recorded_at: "2026-02-18T10:01:10.100Z"
+                        - presence_id: "PR-C3D4"
+                          user_id: "20235678"
+                          device_id: "fp-def456"
+                          course_id: "cloud-101"
+                          session_id: "sesi-02"
+                          qr_token: "TKN-8F2A19"
+                          ts: "2026-02-18T10:01:35.000Z"
+                          recorded_at: "2026-02-18T10:01:35.100Z"
                 gpsLatest:
                   summary: "path=telemetry/gps/latest — Latest GPS"
                   value:
