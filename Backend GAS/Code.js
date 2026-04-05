@@ -754,7 +754,7 @@ function processGenerateQR(payload) {
 /**
  * Called by Index.html via google.script.run to fetch attendance list.
  *
- * @param {Object} payload - { course_id, session_id }
+ * @param {Object} payload - { course_id, session_id, limit? }
  * @returns {Object} { ok, data/error }
  */
 function processGetPresenceHistory(payload) {
