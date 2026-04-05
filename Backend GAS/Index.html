@@ -751,7 +751,7 @@
           }
 
           tbody.innerHTML = items.map(function(item, index) {
-            const checkinTime = item.ts ? new Date(item.ts).toLocaleString('id-ID') : '-';
+            const checkinTime = item.ts ? new Date(item.ts).toLocaleString('id-ID') : 'N/A';
             return (
               '<tr>' +
                 '<td>' + (index + 1) + '</td>' +
