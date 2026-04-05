@@ -22,6 +22,7 @@ const DEFAULT_CENTER: [number, number] = [-7.2575, 112.7521];
 const TRACK_INTERVAL_MS = 7000;
 const POLL_INTERVAL_MS = 7000;
 const HISTORY_LIMIT = 200;
+const SIMULATOR_ACCURACY_M = 1;
 
 function toNumber(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -267,7 +268,7 @@ export default function TrackingPage() {
         ts: new Date().toISOString(),
         lat: event.latlng.lat,
         lng: event.latlng.lng,
-        accuracy_m: 1,
+        accuracy_m: SIMULATOR_ACCURACY_M,
       };
 
       setLatest(point);

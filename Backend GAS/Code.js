@@ -574,7 +574,10 @@ function getGpsHistory(deviceId, limit) {
         throw new Error('Missing required parameter: device_id');
     }
 
-    const maxItems = Math.min(parseInt(limit) || 200, 1000);
+    const parsedLimit = Number(limit);
+    const maxItems = Number.isFinite(parsedLimit) && parsedLimit > 0
+        ? Math.min(Math.floor(parsedLimit), 1000)
+        : 200;
     const sheet = getOrCreateSheet(SHEET.GPS);
     const data = sheet.getDataRange().getValues();
 
@@ -627,7 +630,10 @@ function getGpsDevices() {
  * @returns {Object}
  */
 function getGpsGlobal(limit) {
-    const maxItems = Math.min(parseInt(limit) || 200, 1000);
+    const parsedLimit = Number(limit);
+    const maxItems = Number.isFinite(parsedLimit) && parsedLimit > 0
+        ? Math.min(Math.floor(parsedLimit), 1000)
+        : 200;
     const devices = getGpsDevices();
 
     const items = devices.map(function (deviceId) {
