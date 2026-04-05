@@ -97,8 +97,8 @@ export function useAccelerometer(deviceId: string | null) {
 
     window.addEventListener("devicemotion", handleDeviceMotion);
     
-    // Send batch every 5 seconds
-    timerRef.current = setInterval(sendBatch, 5000);
+    // Send batch every 2 seconds for more responsive real-time monitoring
+    timerRef.current = setInterval(sendBatch, 2000);
     setIsRecording(true);
   };
 

@@ -63,6 +63,11 @@ function doGet(e) {
                     .setTitle('Dashboard Presensi QR')
                     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 
+            case 'accel-ui':
+                return HtmlService.createHtmlOutputFromFile('AccelDashboard')
+                    .setTitle('Accelerometer Dashboard')
+                    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+
             default:
                 return sendSuccess({
                     status: 'ok',
@@ -74,6 +79,7 @@ function doGet(e) {
                             '?path=telemetry/gps/latest',
                             '?path=telemetry/gps/history',
                             '?path=ui',
+                            '?path=accel-ui',
                         ],
                         POST: [
                             '?path=presence/qr/generate',
