@@ -31,9 +31,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       padding: 2rem;
-      overflow: hidden;
+      overflow-x: hidden;
     }
 
     /* Ambient background glow */
@@ -75,7 +75,7 @@
       border-radius: 20px;
       padding: 2.5rem;
       width: 100%;
-      max-width: 420px;
+      max-width: 720px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
       animation: slideUp 0.6s ease-out;
     }
@@ -149,9 +149,11 @@
     #qr-container {
       margin: 1.5rem 0;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
-      min-height: 180px;
+      min-height: 340px;
+      padding: 1.5rem;
       background: var(--bg);
       border-radius: 14px;
       border: 1px dashed var(--border);
@@ -164,6 +166,13 @@
     }
     #qr-container img {
       border-radius: 8px;
+    }
+
+    .qr-caption {
+      margin-top: 12px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-align: center;
     }
 
     #placeholder {
@@ -353,6 +362,92 @@
       color: var(--text-muted);
       margin-top: 4px;
     }
+
+    .section-divider {
+      margin: 1.8rem 0 1.2rem;
+      border-top: 1px solid var(--border);
+      opacity: 0.9;
+    }
+
+    .history-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .history-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.9rem;
+    }
+
+    .history-controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .history-controls .form-group {
+      margin-bottom: 0;
+    }
+
+    .history-controls button.primary {
+      min-height: 42px;
+      margin-top: 21px;
+      padding: 10px 14px;
+    }
+
+    .history-table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg);
+      max-height: 280px;
+      overflow: auto;
+    }
+
+    table.history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    .history-table th,
+    .history-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .history-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--surface-hover);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
+
+    .history-empty {
+      padding: 14px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    @media (max-width: 780px) {
+      .history-controls {
+        grid-template-columns: 1fr;
+      }
+      .history-controls button.primary {
+        margin-top: 0;
+      }
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -402,6 +497,7 @@
     <div id="qr-container">
       <span id="placeholder">QR akan muncul di sini setelah generate</span>
     </div>
+    <p class="qr-caption">QR diperbesar untuk memudahkan pemindaian dari jarak yang lebih jauh.</p>
 
     <div class="status-bar">
       <span class="dot idle" id="status-dot"></span>
@@ -425,6 +521,62 @@
       <div class="countdown-track">
         <div class="countdown-fill" id="countdown-fill"></div>
       </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <h3 class="history-title">Daftar Kehadiran Peserta</h3>
+    <p class="history-meta">Pilih course dan sesi untuk melihat peserta yang sudah check-in.</p>
+
+    <div class="history-controls">
+      <div class="form-group">
+        <label>Course</label>
+        <select id="history-course">
+          <option value="cloud-101" selected>Cloud Computing (cloud-101)</option>
+          <option value="basdat-201">Basis Data (basdat-201)</option>
+          <option value="jarkom-301">Jaringan Komputer (jarkom-301)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Session</label>
+        <select id="history-session">
+          <option value="sesi-01" selected>Sesi 01</option>
+          <option value="sesi-02">Sesi 02</option>
+          <option value="sesi-03">Sesi 03</option>
+          <option value="sesi-04">Sesi 04</option>
+          <option value="sesi-05">Sesi 05</option>
+          <option value="sesi-06">Sesi 06</option>
+          <option value="sesi-07">Sesi 07</option>
+          <option value="sesi-08">Sesi 08</option>
+          <option value="sesi-09">Sesi 09</option>
+          <option value="sesi-10">Sesi 10</option>
+          <option value="sesi-11">Sesi 11</option>
+          <option value="sesi-12">Sesi 12</option>
+          <option value="sesi-13">Sesi 13</option>
+          <option value="sesi-14">Sesi 14</option>
+          <option value="sesi-15">Sesi 15</option>
+          <option value="sesi-16">Sesi 16</option>
+        </select>
+      </div>
+      <button class="primary" id="btn-history" onclick="loadPresenceHistory()">
+        Lihat Kehadiran
+      </button>
+    </div>
+
+    <div class="history-table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th style="width: 42px;">#</th>
+            <th>User ID</th>
+            <th>Device ID</th>
+            <th>Waktu Check-in</th>
+          </tr>
+        </thead>
+        <tbody id="history-body">
+          <tr><td colspan="4" class="history-empty">Belum ada data. Pilih filter lalu klik "Lihat Kehadiran".</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -467,6 +619,15 @@
       const text = document.getElementById('status-text');
       dot.className = 'dot ' + state;
       text.textContent = message;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     function generateQR() {
@@ -518,8 +679,8 @@
 
         qrInstance = new QRCode(container, {
           text: qrPayload,
-          width: 180,
-          height: 180,
+          width: 280,
+          height: 280,
           colorDark: '#e8e8ef',
           colorLight: '#1a1a23',
           correctLevel: QRCode.CorrectLevel.H
@@ -551,6 +712,63 @@
       setStatus('error', 'Terjadi kesalahan jaringan');
       console.error(error);
       stopAuto();
+    }
+
+    function loadPresenceHistory() {
+      const courseId = document.getElementById('history-course').value.trim();
+      const sessionId = document.getElementById('history-session').value.trim();
+      const btn = document.getElementById('btn-history');
+      const tbody = document.getElementById('history-body');
+
+      if (!courseId || !sessionId) {
+        setStatus('error', 'Course dan session untuk riwayat wajib dipilih');
+        return;
+      }
+
+      btn.disabled = true;
+      tbody.innerHTML = '<tr><td colspan="4" class="history-empty">Memuat daftar kehadiran...</td></tr>';
+      setStatus('loading', 'Mengambil daftar kehadiran...');
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          btn.disabled = false;
+          if (!response.ok) {
+            tbody.innerHTML = '<tr><td colspan="4" class="history-empty">Gagal memuat: ' + response.error + '</td></tr>';
+            setStatus('error', 'Gagal memuat daftar kehadiran');
+            return;
+          }
+
+          const items = response.data && Array.isArray(response.data.items) ? response.data.items : [];
+          if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="history-empty">Belum ada peserta check-in pada course/sesi ini.</td></tr>';
+            setStatus('idle', 'Data kehadiran kosong untuk filter terpilih');
+            return;
+          }
+
+          tbody.innerHTML = items.map(function(item, index) {
+            const checkinTime = item.ts ? new Date(item.ts).toLocaleString('id-ID') : '-';
+            return (
+              '<tr>' +
+                '<td>' + (index + 1) + '</td>' +
+                '<td>' + escapeHtml(item.user_id || '-') + '</td>' +
+                '<td>' + escapeHtml(item.device_id || '-') + '</td>' +
+                '<td>' + escapeHtml(checkinTime) + '</td>' +
+              '</tr>'
+            );
+          }).join('');
+
+          setStatus('success', 'Daftar kehadiran dimuat (' + items.length + ' peserta)');
+        })
+        .withFailureHandler(function(error) {
+          btn.disabled = false;
+          tbody.innerHTML = '<tr><td colspan="4" class="history-empty">Terjadi kesalahan saat memuat data.</td></tr>';
+          setStatus('error', 'Terjadi kesalahan jaringan pada riwayat');
+          console.error(error);
+        })
+        .processGetPresenceHistory({
+          course_id: courseId,
+          session_id: sessionId
+        });
     }
 
     // ── Auto-refresh ────────────────────────────────
