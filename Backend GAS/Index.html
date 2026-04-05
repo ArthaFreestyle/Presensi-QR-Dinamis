@@ -361,6 +361,7 @@
   <nav class="nav-bar">
     <a href="javascript:void(0);" onclick="goToQR(); return false;" class="active">📋 QR Generate</a>
     <a href="javascript:void(0);" onclick="goToAccel(); return false;">📊 Accel Monitor</a>
+    <a href="javascript:void(0);" onclick="goToGps(); return false;">🛰 GPS Monitor</a>
   </nav>
 
   <div class="card">
@@ -443,6 +444,14 @@
       google.script.run
         .withSuccessHandler(function(url) {
           window.top.location.href = url + '?path=ui';
+        })
+        .getDeployUrl();
+    }
+
+    function goToGps() {
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.top.location.href = url + '?path=gps-ui';
         })
         .getDeployUrl();
     }

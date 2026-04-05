@@ -22,6 +22,7 @@ const DEFAULT_CENTER: [number, number] = [-7.2575, 112.7521];
 const TRACK_INTERVAL_MS = 2000; // Faster GPS capture for smoother live tracking
 const POLL_INTERVAL_MS = 2000; // Faster data refresh for responsive dashboard
 const HISTORY_LIMIT = 200;
+const SIMULATOR_ACCURACY_M = 1;
 
 function toNumber(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -43,6 +44,7 @@ export default function TrackingPage() {
 
   const [inputDeviceId, setInputDeviceId] = useState("");
   const [trackingActive, setTrackingActive] = useState(false);
+  const [simulatorActive, setSimulatorActive] = useState(false);
   const [permission, setPermission] = useState<PermissionState>("pending");
   const [sentPoints, setSentPoints] = useState(0);
   const [lastAccuracy, setLastAccuracy] = useState<number | null>(null);
@@ -259,6 +261,36 @@ export default function TrackingPage() {
     const map = mapRef.current as import("leaflet").Map | null;
     if (!leaflet || !map) return;
 
+    const onMapClick = (event: import("leaflet").LeafletMouseEvent) => {
+      if (!simulatorActive || !normalizedDeviceId) return;
+
+      const point = {
+        ts: new Date().toISOString(),
+        lat: event.latlng.lat,
+        lng: event.latlng.lng,
+        accuracy_m: SIMULATOR_ACCURACY_M,
+      };
+
+      setLatest(point);
+      setLastAccuracy(point.accuracy_m);
+      setHistory((prev) => {
+        const next = [...prev, point];
+        return next.length > HISTORY_LIMIT ? next.slice(next.length - HISTORY_LIMIT) : next;
+      });
+      void postPoint(point);
+    };
+
+    map.on("click", onMapClick);
+    return () => {
+      map.off("click", onMapClick);
+    };
+  }, [normalizedDeviceId, postPoint, simulatorActive]);
+
+  useEffect(() => {
+    const leaflet = leafletRef.current as typeof import("leaflet") | null;
+    const map = mapRef.current as import("leaflet").Map | null;
+    if (!leaflet || !map) return;
+
     if (polylineRef.current) {
       map.removeLayer(polylineRef.current as import("leaflet").Layer);
       polylineRef.current = null;
@@ -326,8 +358,28 @@ export default function TrackingPage() {
             </Button>
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
+            <Button
+              variant={simulatorActive ? "secondary" : "outline"}
+              onClick={() => {
+                setSimulatorActive((prev) => {
+                  const next = !prev;
+                  if (next) setTrackingActive(false);
+                  return next;
+                });
+              }}
+              disabled={!normalizedDeviceId}
+            >
+              {simulatorActive ? "Matikan Simulator" : "Aktifkan Simulator (Fake GPS)"}
+            </Button>
+            <p className="text-sm text-slate-600">
+              Saat simulator aktif, klik titik di peta untuk mengirim koordinat virtual ke backend.
+            </p>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             <Badge variant={trackingActive ? "success" : "secondary"}>Tracking: {trackingActive ? "aktif" : "nonaktif"}</Badge>
+            <Badge variant={simulatorActive ? "warning" : "secondary"}>Simulator: {simulatorActive ? "aktif" : "nonaktif"}</Badge>
             <Badge variant={permission === "granted" ? "success" : permission === "denied" ? "warning" : "secondary"}>
               GPS Permission: {permission}
             </Badge>
@@ -345,7 +397,10 @@ export default function TrackingPage() {
           <CardDescription>Center default Surabaya (-7.2575, 112.7521). Marker auto-refresh setiap polling.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div ref={mapContainerRef} className="min-h-[60vh] w-full rounded-lg border border-slate-300 bg-slate-50 md:min-h-[28rem]" />
+          <div
+            ref={mapContainerRef}
+            className={`min-h-[60vh] w-full rounded-lg border bg-slate-50 md:min-h-[28rem] ${simulatorActive ? "cursor-crosshair border-amber-400" : "border-slate-300"}`}
+          />
           <p className="mt-3 text-sm text-slate-600">
             Titik history: {history.length} {latest?.ts ? `• Update terakhir: ${latest.ts}` : ""} • Endpoint: <code>telemetry/gps/latest</code> dan <code>telemetry/gps/history</code>
           </p>

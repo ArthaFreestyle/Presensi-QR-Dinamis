@@ -33,6 +33,8 @@ const QR_TOKEN_TTL_MS = 120 * 1000;
  *   ?path=presence/status
  *   ?path=telemetry/gps/latest
  *   ?path=telemetry/gps/history
+ *   ?path=telemetry/gps/devices
+ *   ?path=telemetry/gps/global
  *   ?path=ui  (default — serves Dashboard HTML)
  */
 function doGet(e) {
@@ -53,9 +55,20 @@ function doGet(e) {
             case 'telemetry/gps/history':
                 return sendSuccess(getGpsHistory(params.device_id, params.limit));
 
+            case 'telemetry/gps/devices':
+                return sendSuccess({ items: getGpsDevices() });
+
+            case 'telemetry/gps/global':
+                return sendSuccess(getGpsGlobal(params.limit));
+
             case 'accel-ui':
                 return HtmlService.createHtmlOutputFromFile('AccelDashboard')
                     .setTitle('Accelerometer Monitor')
+                    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+
+            case 'gps-ui':
+                return HtmlService.createHtmlOutputFromFile('GPSDashboard')
+                    .setTitle('GPS Monitor')
                     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 
             case 'ui':
@@ -78,6 +91,9 @@ function doGet(e) {
                             '?path=telemetry/accel/latest',
                             '?path=telemetry/gps/latest',
                             '?path=telemetry/gps/history',
+                            '?path=telemetry/gps/devices',
+                            '?path=telemetry/gps/global',
+                            '?path=gps-ui',
                             '?path=ui',
                             '?path=accel-ui',
                         ],
@@ -564,7 +580,10 @@ function getGpsHistory(deviceId, limit) {
         throw new Error('Missing required parameter: device_id');
     }
 
-    const maxItems = Math.min(parseInt(limit) || 200, 1000);
+    const parsedLimit = Number(limit);
+    const maxItems = Number.isFinite(parsedLimit) && parsedLimit > 0
+        ? Math.min(Math.floor(parsedLimit), 1000)
+        : 200;
     const sheet = getOrCreateSheet(SHEET.GPS);
     const data = sheet.getDataRange().getValues();
 
@@ -588,6 +607,52 @@ function getGpsHistory(deviceId, limit) {
         device_id: deviceId,
         items: items,
     };
+}
+
+/**
+ * Returns unique list of Device IDs from GPS sheet.
+ *
+ * @returns {Array<string>}
+ */
+function getGpsDevices() {
+    const sheet = getOrCreateSheet(SHEET.GPS);
+    const data = sheet.getDataRange().getValues();
+    const unique = new Set();
+
+    for (let i = 1; i < data.length; i++) {
+        const id = data[i][0];
+        if (id) unique.add(String(id));
+    }
+
+    return Array.from(unique);
+}
+
+/**
+ * GET ?path=telemetry/gps/global&limit=200
+ *
+ * Returns all device routes (polyline points) and each device last position.
+ *
+ * @param {string|number} limit - max number of points per device (default 200)
+ * @returns {Object}
+ */
+function getGpsGlobal(limit) {
+    const parsedLimit = Number(limit);
+    const maxItems = Number.isFinite(parsedLimit) && parsedLimit > 0
+        ? Math.min(Math.floor(parsedLimit), 1000)
+        : 200;
+    const devices = getGpsDevices();
+
+    const items = devices.map(function (deviceId) {
+        const history = getGpsHistory(deviceId, maxItems).items;
+        const latest = getGpsLatest(deviceId);
+        return {
+            device_id: deviceId,
+            polyline: history,
+            last_position: latest,
+        };
+    });
+
+    return { items: items };
 }
 
 

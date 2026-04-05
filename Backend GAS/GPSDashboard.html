@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Monitor</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .nav-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            display: flex;
+            gap: 6px;
+            padding: 10px 16px;
+            background: rgba(248, 249, 250, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .nav-bar a {
+            text-decoration: none;
+            color: #64748b;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 8px;
+        }
+        .nav-bar a:hover { background: #e2e8f0; color: #1e293b; }
+        .nav-bar a.active { background: #2563eb; color: #fff; }
+        body { padding-top: 3.5rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { margin: 0 0 16px; font-size: 24px; color: #1e293b; }
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        select {
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fff;
+        }
+        button {
+            padding: 10px 14px;
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            background: #10b981;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .card h2 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            color: #0f172a;
+        }
+        .map {
+            width: 100%;
+            height: 360px;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+        }
+        .hint { margin-top: 8px; font-size: 12px; color: #64748b; }
+        @media (max-width: 900px) {
+            .cards { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-bar">
+        <a href="javascript:void(0);" onclick="goToQR(); return false;">📋 QR Generate</a>
+        <a href="javascript:void(0);" onclick="goToAccel(); return false;">📊 Accel Monitor</a>
+        <a href="javascript:void(0);" onclick="goToGps(); return false;" class="active">🛰 GPS Monitor</a>
+    </nav>
+
+    <div class="container">
+        <h1>🛰 GPS Monitoring Dashboard</h1>
+        <div class="controls">
+            <select id="deviceSelect">
+                <option value="">Memuat device...</option>
+            </select>
+            <button type="button" onclick="refreshAll()">Refresh</button>
+        </div>
+
+        <div class="cards">
+            <div class="card">
+                <h2>Dashboard Individu - Rute Perjalanan (Polyline)</h2>
+                <div id="routeMap" class="map"></div>
+                <div id="routeHint" class="hint">Pilih device_id untuk melihat jejak rute.</div>
+            </div>
+            <div class="card">
+                <h2>Dashboard Individu - Last Position</h2>
+                <div id="lastMap" class="map"></div>
+                <div id="lastHint" class="hint">Marker posisi terakhir device terpilih.</div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <h2>Monitoring Global - Semua Polyline & Last Position</h2>
+            <div id="globalMap" class="map" style="height:420px;"></div>
+            <div id="globalHint" class="hint">Menampilkan semua aktivitas device dalam satu peta.</div>
+        </div>
+    </div>
+
+    <script>
+        const DEFAULT_CENTER = [-7.2575, 112.7521];
+        const POLL_MS = 7000;
+
+        const elDeviceSelect = document.getElementById('deviceSelect');
+        const elRouteHint = document.getElementById('routeHint');
+        const elLastHint = document.getElementById('lastHint');
+        const elGlobalHint = document.getElementById('globalHint');
+
+        let routeMap;
+        let lastMap;
+        let globalMap;
+
+        let routeLayer = null;
+        let lastLayer = null;
+        let globalGroup = null;
+        let poller = null;
+
+        function initMaps() {
+            routeMap = L.map('routeMap').setView(DEFAULT_CENTER, 13);
+            lastMap = L.map('lastMap').setView(DEFAULT_CENTER, 13);
+            globalMap = L.map('globalMap').setView(DEFAULT_CENTER, 12);
+            [routeMap, lastMap, globalMap].forEach((m) => {
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(m);
+            });
+        }
+
+        function toNumber(v) {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function loadDevices() {
+            google.script.run
+                .withSuccessHandler(function (devices) {
+                    elDeviceSelect.innerHTML = '';
+                    if (!devices || devices.length === 0) {
+                        elDeviceSelect.innerHTML = '<option value="">Belum ada data GPS</option>';
+                        return;
+                    }
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = '-- Pilih device_id --';
+                    placeholder.disabled = true;
+                    placeholder.selected = true;
+                    elDeviceSelect.appendChild(placeholder);
+                    devices.forEach(function (d) {
+                        const opt = document.createElement('option');
+                        opt.value = d;
+                        opt.textContent = d;
+                        elDeviceSelect.appendChild(opt);
+                    });
+                })
+                .withFailureHandler(function (error) {
+                    elDeviceSelect.innerHTML = '<option value="">Gagal memuat device</option>';
+                    elGlobalHint.textContent = 'Error: ' + (error && error.message ? error.message : 'unknown');
+                })
+                .getGpsDevices();
+        }
+
+        function drawSelectedDevice() {
+            const deviceId = elDeviceSelect.value;
+            if (!deviceId) return;
+
+            google.script.run
+                .withSuccessHandler(function (historyRes) {
+                    const points = (historyRes && historyRes.items ? historyRes.items : [])
+                        .map((p) => [toNumber(p.lat), toNumber(p.lng)])
+                        .filter((p) => p[0] !== null && p[1] !== null);
+
+                    if (routeLayer) routeMap.removeLayer(routeLayer);
+                    if (points.length > 1) {
+                        routeLayer = L.polyline(points, { color: '#2563eb', weight: 4, opacity: 0.8 }).addTo(routeMap);
+                        routeMap.fitBounds(routeLayer.getBounds(), { padding: [20, 20] });
+                        elRouteHint.textContent = 'Jumlah titik rute: ' + points.length;
+                    } else {
+                        routeLayer = null;
+                        elRouteHint.textContent = 'Belum cukup data untuk polyline.';
+                    }
+                })
+                .getGpsHistory(deviceId, 500);
+
+            google.script.run
+                .withSuccessHandler(function (latestRes) {
+                    const lat = toNumber(latestRes && latestRes.lat);
+                    const lng = toNumber(latestRes && latestRes.lng);
+                    if (lastLayer) lastMap.removeLayer(lastLayer);
+                    if (lat === null || lng === null) {
+                        elLastHint.textContent = 'Belum ada last position untuk device ini.';
+                        return;
+                    }
+                    lastLayer = L.circleMarker([lat, lng], {
+                        radius: 8,
+                        color: '#ef4444',
+                        fillColor: '#ef4444',
+                        fillOpacity: 0.9,
+                        weight: 2
+                    }).addTo(lastMap);
+                    lastMap.setView([lat, lng], 16);
+                    elLastHint.textContent = 'Last position: ' + lat.toFixed(6) + ', ' + lng.toFixed(6);
+                })
+                .getGpsLatest(deviceId);
+        }
+
+        function drawGlobal() {
+            google.script.run
+                .withSuccessHandler(function (globalRes) {
+                    const devices = (globalRes && globalRes.items) ? globalRes.items : [];
+                    if (globalGroup) globalMap.removeLayer(globalGroup);
+                    globalGroup = L.layerGroup().addTo(globalMap);
+
+                    const bounds = [];
+                    let polylineCount = 0;
+                    let markerCount = 0;
+
+                    devices.forEach(function (device) {
+                        const points = (device.polyline || [])
+                            .map((p) => [toNumber(p.lat), toNumber(p.lng)])
+                            .filter((p) => p[0] !== null && p[1] !== null);
+                        if (points.length > 1) {
+                            L.polyline(points, { color: '#2563eb', weight: 3, opacity: 0.55 }).addTo(globalGroup);
+                            points.forEach((p) => bounds.push(p));
+                            polylineCount++;
+                        }
+
+                        const lat = toNumber(device.last_position && device.last_position.lat);
+                        const lng = toNumber(device.last_position && device.last_position.lng);
+                        if (lat !== null && lng !== null) {
+                            const marker = L.circleMarker([lat, lng], {
+                                radius: 7,
+                                color: '#f97316',
+                                fillColor: '#f97316',
+                                fillOpacity: 0.95,
+                                weight: 2
+                            }).addTo(globalGroup);
+                            marker.bindPopup('<b>' + device.device_id + '</b>');
+                            bounds.push([lat, lng]);
+                            markerCount++;
+                        }
+                    });
+
+                    if (bounds.length > 0) {
+                        globalMap.fitBounds(L.latLngBounds(bounds), { padding: [20, 20] });
+                    }
+                    elGlobalHint.textContent = 'Polyline: ' + polylineCount + ' • Last marker: ' + markerCount;
+                })
+                .withFailureHandler(function (error) {
+                    elGlobalHint.textContent = 'Error: ' + (error && error.message ? error.message : 'unknown');
+                })
+                .getGpsGlobal(300);
+        }
+
+        function refreshAll() {
+            loadDevices();
+            drawSelectedDevice();
+            drawGlobal();
+        }
+
+        function goToQR() {
+            google.script.run.withSuccessHandler(function(url) {
+                window.top.location.href = url + '?path=ui';
+            }).getDeployUrl();
+        }
+        function goToAccel() {
+            google.script.run.withSuccessHandler(function(url) {
+                window.top.location.href = url + '?path=accel-ui';
+            }).getDeployUrl();
+        }
+        function goToGps() {
+            google.script.run.withSuccessHandler(function(url) {
+                window.top.location.href = url + '?path=gps-ui';
+            }).getDeployUrl();
+        }
+
+        elDeviceSelect.addEventListener('change', function () {
+            drawSelectedDevice();
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            initMaps();
+            loadDevices();
+            drawGlobal();
+            poller = setInterval(function () {
+                drawSelectedDevice();
+                drawGlobal();
+            }, POLL_MS);
+        });
+    </script>
+</body>
+</html>
