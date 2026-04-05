@@ -166,6 +166,7 @@
     <nav class="nav-bar">
         <a href="javascript:void(0);" onclick="goToQR(); return false;">📋 QR Generate</a>
         <a href="javascript:void(0);" onclick="goToAccel(); return false;" class="active">📊 Accel Monitor</a>
+        <a href="javascript:void(0);" onclick="goToGps(); return false;">🛰 GPS Monitor</a>
     </nav>
 
     <div class="container">
@@ -393,6 +394,14 @@
             google.script.run
                 .withSuccessHandler(function(url) {
                     window.top.location.href = url + '?path=accel-ui';
+                })
+                .getDeployUrl();
+        }
+
+        function goToGps() {
+            google.script.run
+                .withSuccessHandler(function(url) {
+                    window.top.location.href = url + '?path=gps-ui';
                 })
                 .getDeployUrl();
         }
