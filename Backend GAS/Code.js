@@ -424,7 +424,7 @@ function getPresenceHistory(courseId, sessionId, limit) {
     const items = [];
 
     // Column indices: 0=presence_id, 1=user_id, 2=device_id, 3=course_id, 4=session_id, 5=qr_token, 6=ts, 7=recorded_at
-    // Walk backwards to return most recent first.
+    // Walk backwards then reverse for chronological order (oldest -> newest).
     for (let i = data.length - 1; i >= 1 && items.length < maxItems; i--) {
         if (String(data[i][3]) === courseKey &&
             String(data[i][4]) === sessionKey) {
@@ -440,6 +440,8 @@ function getPresenceHistory(courseId, sessionId, limit) {
             });
         }
     }
+
+    items.reverse();
 
     return {
         course_id: courseId,
