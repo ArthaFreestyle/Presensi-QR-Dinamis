@@ -58,6 +58,12 @@ paths:
           schema:
             type: string
           description: Required when path=presence/status or presence/history
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 300
+          description: Maximum rows to return (path=presence/history)
         - name: device_id
           in: query
           schema:
