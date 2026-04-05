@@ -630,6 +630,10 @@
         .replace(/'/g, '&#39;');
     }
 
+    function renderHistoryMessage(message) {
+      return '<tr><td colspan="4" class="history-empty">' + escapeHtml(message) + '</td></tr>';
+    }
+
     function generateQR() {
       const courseId = document.getElementById('input-course').value.trim();
       const sessionId = document.getElementById('input-session').value.trim();
@@ -726,21 +730,21 @@
       }
 
       btn.disabled = true;
-      tbody.innerHTML = '<tr><td colspan="4" class="history-empty">Memuat daftar kehadiran...</td></tr>';
+      tbody.innerHTML = renderHistoryMessage('Memuat daftar kehadiran...');
       setStatus('loading', 'Mengambil daftar kehadiran...');
 
       google.script.run
         .withSuccessHandler(function(response) {
           btn.disabled = false;
           if (!response.ok) {
-            tbody.innerHTML = '<tr><td colspan="4" class="history-empty">Gagal memuat: ' + response.error + '</td></tr>';
+            tbody.innerHTML = renderHistoryMessage('Gagal memuat: ' + (response.error || 'unknown_error'));
             setStatus('error', 'Gagal memuat daftar kehadiran');
             return;
           }
 
           const items = response.data && Array.isArray(response.data.items) ? response.data.items : [];
           if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="history-empty">Belum ada peserta check-in pada course/sesi ini.</td></tr>';
+            tbody.innerHTML = renderHistoryMessage('Belum ada peserta check-in pada course/sesi ini.');
             setStatus('idle', 'Data kehadiran kosong untuk filter terpilih');
             return;
           }
@@ -761,7 +765,7 @@
         })
         .withFailureHandler(function(error) {
           btn.disabled = false;
-          tbody.innerHTML = '<tr><td colspan="4" class="history-empty">Terjadi kesalahan saat memuat data.</td></tr>';
+          tbody.innerHTML = renderHistoryMessage('Terjadi kesalahan saat memuat data.');
           setStatus('error', 'Terjadi kesalahan jaringan pada riwayat');
           console.error(error);
         })
