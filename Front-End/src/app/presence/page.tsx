@@ -16,6 +16,7 @@ type ParsedQr = {
   qr_token: string;
   course_id: string;
   session_id: string;
+  isPartial?: boolean;
 };
 
 const backendErrorMessage: Record<string, string> = {
@@ -29,9 +30,13 @@ function extractQrFromParams(params: URLSearchParams): ParsedQr | null {
   const courseId = params.get("course_id");
   const sessionId = params.get("session_id");
 
-  if (!qrToken || !courseId || !sessionId) return null;
+  if (!qrToken) return null;
 
-  return { qr_token: qrToken, course_id: courseId, session_id: sessionId };
+  if (!courseId || !sessionId) {
+    return { qr_token: qrToken, course_id: courseId || "", session_id: sessionId || "", isPartial: true };
+  }
+
+  return { qr_token: qrToken, course_id: courseId, session_id: sessionId, isPartial: false };
 }
 
 function parseQrText(rawValue: string): ParsedQr | null {
@@ -39,12 +44,22 @@ function parseQrText(rawValue: string): ParsedQr | null {
 
   try {
     const parsed = JSON.parse(rawValue) as Partial<ParsedQr>;
-    if (parsed.qr_token && parsed.course_id && parsed.session_id) {
-      return {
-        qr_token: parsed.qr_token,
-        course_id: parsed.course_id,
-        session_id: parsed.session_id,
-      };
+    if (parsed.qr_token) {
+      if (parsed.course_id && parsed.session_id) {
+        return {
+          qr_token: parsed.qr_token,
+          course_id: parsed.course_id,
+          session_id: parsed.session_id,
+          isPartial: false,
+        };
+      } else {
+        return {
+          qr_token: parsed.qr_token,
+          course_id: parsed.course_id || "",
+          session_id: parsed.session_id || "",
+          isPartial: true,
+        };
+      }
     }
   } catch {
     // fallback query parsing
@@ -81,8 +96,10 @@ export default function PresencePage() {
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [lastRawValue, setLastRawValue] = useState<string | null>(null);
+  const [manualCourseId, setManualCourseId] = useState("");
+  const [manualSessionId, setManualSessionId] = useState("");
 
-  const canCheckin = useMemo(() => Boolean(userId.trim() && parsedQr && !isCheckingIn), [userId, parsedQr, isCheckingIn]);
+  const canCheckin = useMemo(() => Boolean(userId.trim() && parsedQr && !parsedQr.isPartial && !isCheckingIn), [userId, parsedQr, isCheckingIn]);
 
   const handleSetupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -288,7 +305,39 @@ export default function PresencePage() {
             </div>
           ) : null}
 
-          {parsedQr ? (
+          {parsedQr?.isPartial ? (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-md space-y-3">
+              <p className="text-sm text-amber-800 font-medium">
+                ⚠️ QR hanya berisi token. Silakan isi Course ID dan Session ID secara manual.
+              </p>
+              <input
+                placeholder="Course ID (contoh: IF1234)"
+                value={manualCourseId}
+                onChange={(e) => setManualCourseId(e.target.value)}
+                className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              />
+              <input
+                placeholder="Session ID (contoh: SES-1)"
+                value={manualSessionId}
+                onChange={(e) => setManualSessionId(e.target.value)}
+                className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              />
+              <Button
+                onClick={() => {
+                  setParsedQr({
+                    ...parsedQr,
+                    course_id: manualCourseId,
+                    session_id: manualSessionId,
+                    isPartial: false,
+                  });
+                }}
+                disabled={!manualCourseId.trim() || !manualSessionId.trim()}
+                className="w-full"
+              >
+                Konfirmasi
+              </Button>
+            </div>
+          ) : parsedQr ? (
             <div className="p-3 bg-green-50 text-green-800 text-sm rounded-md border border-green-200">
               <div className="flex items-center gap-1.5 mb-1">
                 <CheckCircle2 className="h-4 w-4" />
