@@ -72,9 +72,9 @@ function parseQrText(rawValue: string): ParsedQr | null {
     const url = new URL(rawValue);
     const fromUrlParams = extractQrFromParams(url.searchParams);
     if (fromUrlParams) return fromUrlParams;
+  } catch {
     // invalid URL
   }
-
   // Fallback: treat the raw value itself as just the token
   return { qr_token: rawValue.trim(), course_id: "", session_id: "", isPartial: true };
 }
